@@ -99,6 +99,7 @@ namespace CoreSystems.Api
         private Action<MyEntity, float> _setAreaRadiusMultiplier;
         private Action<MyEntity, float> _setVelocityMultiplier;
         private Action<MyEntity, bool> _setFiringAllowed;
+        private Action<string> _registerTerminalControl;
 
         private Func<MyEntity, float> _getRofMultiplier;
         private Func<MyEntity, float> _getBaseDmgMultiplier;
@@ -150,6 +151,13 @@ namespace CoreSystems.Api
         /// <param name="block"></param>
         /// <param name="multiplier"></param>
         public void SetFiringAllowed(MyEntity block, bool isAllowed) => _setFiringAllowed?.Invoke(block, isAllowed);
+
+        /// <summary>
+        /// Registers a terminal control to not be hidden by WeaponCore.
+        /// </summary>
+        /// <param name="block"></param>
+        /// <param name="multiplier"></param>
+        public void RegisterTerminalControl(string controlId) => _registerTerminalControl?.Invoke(controlId);
 
         public void SetWeaponTarget(MyEntity weapon, MyEntity target, int weaponId = 0) =>
             _setWeaponTarget?.Invoke(weapon, target, weaponId);
@@ -264,10 +272,16 @@ namespace CoreSystems.Api
         public void GetAllCoreRifles(ICollection<MyDefinitionId> collection) => _getCoreRifles?.Invoke(collection);
         public void GetAllCoreArmors(IList<byte[]> collection) => _getCoreArmors?.Invoke(collection);
 
+        /// <summary>
+        /// Gets count of all projectiles that are targeting the MyEntity
+        /// </summary>
         public MyTuple<bool, int, int> GetProjectilesLockedOn(MyEntity victim) =>
             _getProjectilesLockedOn?.Invoke(victim) ?? new MyTuple<bool, int, int>();
+        /// <summary>
+        /// Gets positional information on projectiles that are actively locked on to the MyEntity
+        /// </summary>
         public void GetProjectilesLockedOnPos(MyEntity victim, ICollection<Vector3D> collection) =>
-           _getProjectilesLockedOnPos?.Invoke(victim, collection);
+            _getProjectilesLockedOnPos?.Invoke(victim, collection);
         public void GetSortedThreats(MyEntity shooter, ICollection<MyTuple<MyEntity, float>> collection) =>
             _getSortedThreats?.Invoke(shooter, collection);
         public void GetObstructions(MyEntity shooter, ICollection<MyEntity> collection) =>
@@ -633,6 +647,7 @@ namespace CoreSystems.Api
             AssignMethod(delegates, "SetAreaRadiusMultiplier", ref _setAreaRadiusMultiplier);
             AssignMethod(delegates, "SetVelocityMultiplier", ref _setVelocityMultiplier);
             AssignMethod(delegates, "SetFiringAllowed", ref _setFiringAllowed);
+            AssignMethod(delegates, "RegisterTerminalControl", ref _registerTerminalControl);
 
             AssignMethod(delegates, "GetRofMultiplier", ref _getRofMultiplier);
             AssignMethod(delegates, "GetBaseDmgMultiplier", ref _getBaseDmgMultiplier);
