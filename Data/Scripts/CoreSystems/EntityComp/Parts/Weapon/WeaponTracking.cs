@@ -918,7 +918,7 @@ namespace CoreSystems.Platform
         public void ShowHitChanceNotification(double hitChance)
         {
             string message = $"Hit Chance: {hitChance * 100:0.00}%";
-            MyAPIGateway.Utilities.ShowNotification(message, 2000, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification(message, 1000/60, MyFontEnum.White);
         }
 
         public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
@@ -928,7 +928,7 @@ namespace CoreSystems.Platform
             var comp = weapon.Comp;
             var ai = comp.Ai;
             var session = Session.I;
- 
+
             #region Must Have Updates
             if (ai.VelocityUpdateTick != session.Tick)
             {
@@ -941,7 +941,7 @@ namespace CoreSystems.Platform
             var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
             var projectileMaxSpeed = ammoDef.Const.DesiredProjectileSpeed;
             var updateGravity = ammoDef.Const.FeelsGravity && ai.InPlanetGravity;
-            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5; //equal to approx 1.58 m/s
+            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5; // equal to approx 1.58 m/s
 
             if (updateGravity && session.Tick - weapon.GravityTick > 119)
             {
@@ -957,14 +957,14 @@ namespace CoreSystems.Platform
             #endregion
 
             Vector3D deltaVel = targetVel - shooterVel;
-
             double deltaLength;
             double initialTti;
             Vector3D deltaPos = targetPos - shooterPos;
             if (Vector3D.IsZero(deltaPos))
                 return targetPos;
-            
+
             Vector3D deltaPosNorm;
+            double closingSpeed;
 
             var targCube = weapon.Target?.TargetObject as MyCubeBlock;
             if (!basicPrediction && trackAngular && targCube != null && targCube.CubeGrid.Physics != null && targCube.CubeGrid.Physics.AngularVelocity.LengthSquared() > 0.0014)
@@ -985,7 +985,6 @@ namespace CoreSystems.Platform
                     deltaLength = deltaPosNorm.Normalize();
                 }
 
-                double closingSpeed;
                 Vector3D.Dot(ref deltaVel, ref deltaPosNorm, out closingSpeed);
                 initialTti = (projectileMaxSpeed * projectileMaxSpeed) - (deltaVel - (closingSpeed * deltaPosNorm)).LengthSquared();
 
@@ -1013,6 +1012,10 @@ namespace CoreSystems.Platform
                 aimPoint = targetPos + (usedTti + (ammoDef.Const.AmmoSkipAccel ? 0 : (projAccelTime / usedTti))) * (targetVel - shooterVel);
             }
 
+            // Calculate hit chance based on the AI's calculations
+            double hitChance = CalculateHitChance(weapon, deltaLength, valid);
+            weapon.ShowHitChanceNotification(hitChance);
+
             // Check if the time-to-intercept is greater than half of the maximum travel time
             double maxTravelTime = ammoDef.Const.MaxTrajectory / projectileMaxSpeed;
             double closingSpeedPercentage = Vector3D.Dot(deltaVel, deltaPosNorm) / projectileMaxSpeed;
@@ -1031,14 +1034,14 @@ namespace CoreSystems.Platform
                 var gravPointDot = Vector3D.Dot(weapon.GravityUnitDir, deltaPosNorm);
                 var targetAngle = Math.Acos(gravPointDot);
                 double elevationDifference;
-                if (targetAngle >= 1.5708) //Target is above weapon
+                if (targetAngle >= 1.5708) // Target is above weapon
                 {
-                    targetAngle -= 1.5708; //angle-90
+                    targetAngle -= 1.5708; // angle-90
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
-                else //Target is below weapon
+                else // Target is below weapon
                 {
-                    targetAngle = 1.5708 - targetAngle; //90-angle
+                    targetAngle = 1.5708 - targetAngle; // 90-angle
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
                 var horizontalDistance = Math.Sqrt(deltaLength * deltaLength - elevationDifference * elevationDifference);
@@ -1055,10 +1058,10 @@ namespace CoreSystems.Platform
                 else
                 {
                     var angleSqrt = Math.Sqrt(angleCheck);
-                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d));//Higher angle
-                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d));//Lower angle                //Try angle 2 first (the lower one)
+                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d)); // Higher angle
+                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d)); // Lower angle
 
-                    var verticalDistance = Math.Tan(angle2) * horizontalDistance; //without below-the-horizon modifier
+                    var verticalDistance = Math.Tan(angle2) * horizontalDistance; // without below-the-horizon modifier
                     gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
 
                     if (angle1 < 1.57)
@@ -1067,7 +1070,7 @@ namespace CoreSystems.Platform
                         var targetDirection = targetAimPoint - shooterPos;
 
                         bool isTracking;
-                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking)) //Angle 2 obscured, switch to angle 1
+                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking)) // Angle 2 obscured, switch to angle 1
                         {
                             verticalDistance = Math.Tan(angle1) * horizontalDistance;
                             gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
@@ -1081,10 +1084,21 @@ namespace CoreSystems.Platform
                 }
             }
 
-            //DsDebugDraw.DrawLine(new LineD(targetPos, aimPoint + gravityOffset), Color.Red, 1);
-            //MyAPIGateway.Utilities.ShowNotification($"New Mode: {(useSimple ? "Simple" : "Advanced")} {(updateGravity ? " w/ grav" : " no grav")} {(ammoDef.Const.AmmoSkipAccel ? " no proj accel" : "w/ proj accel")}",16);
-
             return aimPoint + gravityOffset;
+        }
+
+        private static double CalculateHitChance(Weapon weapon, double distanceToTarget, bool validEstimate)
+        {
+            // Calculate hit chance based on AI's existing calculations
+            double distanceFactor = 1.0 - (distanceToTarget / weapon.MaxTargetDistance);
+            double validityFactor = validEstimate ? 1.0 : 0.0; // If the estimate is not valid, the hit chance is zero
+            double trackingFactor = weapon.TurretController ? 1.0 : 0.0; // Check if turret can track the target
+
+            // Combine factors to get hit chance
+            double hitChance = distanceFactor * validityFactor * trackingFactor;
+
+            // Clamp to valid range [0, 1]
+            return MathHelper.Clamp(hitChance, 0.0, 1.0);
         }
 
 
