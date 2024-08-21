@@ -918,7 +918,7 @@ namespace CoreSystems.Platform
         public void ShowHitChanceNotification(double hitChance)
         {
             string message = $"Hit Chance: {hitChance * 100:0.00}%";
-            MyAPIGateway.Utilities.ShowNotification(message, 1000, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60, MyFontEnum.White);
         }
 
         public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
@@ -1014,18 +1014,18 @@ namespace CoreSystems.Platform
 
             // Debug: Display intermediate values
             MyAPIGateway.Utilities.ShowNotification($"Delta Length: {deltaLength:F2} m", 1000, MyFontEnum.White);
-            MyAPIGateway.Utilities.ShowNotification($"Initial TTI: {initialTti:F2} s", 1000, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification($"Initial TTI: {initialTti:F2} s", 1000 / 60, MyFontEnum.White);
             MyAPIGateway.Utilities.ShowNotification($"Used TTI: {usedTti:F2} s", 1000, MyFontEnum.White);
 
             // Calculate hit probability
             double hitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid);
-                                                                                        
+
             // Check hit probability threshold
             if (hitProbability < 0.1) // Threshold can be adjusted as needed
             {
                 valid = false;
                 weapon.Target.ImpossibleToHit = true;
-                MyAPIGateway.Utilities.ShowNotification("Hit Probability too low, will not fire", 1000, MyFontEnum.Red);
+                MyAPIGateway.Utilities.ShowNotification("Hit Probability too low, will not fire", 1000 / 60, MyFontEnum.Red);
                 return targetPos;
             }
 
@@ -1107,21 +1107,23 @@ namespace CoreSystems.Platform
             double accuracyConeSize = Math.Tan(weaponAccuracy) * deltaLength;
 
             // Calculate hit probability
-            double hitProbability = Math.Min(1, targetAngularSize / (accuracyConeSize + 1e-6));
+            double baseProbability = 0.5; // Base probability to account for stationary targets
+            double hitProbability = Math.Min(1, targetAngularSize / (accuracyConeSize + 1e-6)) * baseProbability;
 
-            // Adjust probability based on target velocity and acceleration
-            double velocityFactor = 1 / (1 + targetVel.Length() / 100);
-            double accelerationFactor = 1 / (1 + targetAcc.Length() / 10);
+            // Adjust probability based on target velocity and acceleration (with reduced impact)
+            double velocityFactor = 1 / (1 + targetVel.Length() / 200); // Less impact from velocity
+            double accelerationFactor = 1 / (1 + targetAcc.Length() / 20); // Less impact from acceleration
 
             // Combine factors
             hitProbability *= velocityFactor * accelerationFactor;
 
             // Apply a validity factor
-            hitProbability *= validEstimate ? 1.0 : 0.0;
+            hitProbability *= validEstimate ? 1.0 : 0.1; // If not valid, reduce probability but don't zero it out
 
             // Clamp hit probability to [0, 1]
-            return MathHelper.Clamp(hitProbability, 0.0, 1.0);
+            return MathHelper.Clamp(hitProbability, 0.05, 1.0); // Ensure a minimum probability of 5%
         }
+
 
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
