@@ -86,6 +86,9 @@ namespace CoreSystems.Platform
                 else selfHit = true;
             }
 
+            double hitChance = validEstimate ? 1.0 : 0.0; // Simple logic, you might want to replace this with actual calculation based on your requirements
+            weapon.ShowHitChanceNotification(hitChance);
+
             return !selfHit && (inRange && canTrack || weapon.Comp.Data.Repo.Values.State.TrackingReticle);
         }
 
@@ -910,6 +913,12 @@ namespace CoreSystems.Platform
                 timeToIntercept -= value / deriv;
             }
             return false;
+        }
+
+        public void ShowHitChanceNotification(double hitChance)
+        {
+            string message = $"Hit Chance: {hitChance * 100:0.00}%";
+            MyAPIGateway.Utilities.ShowNotification(message, 2000, MyFontEnum.White);
         }
 
         public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
