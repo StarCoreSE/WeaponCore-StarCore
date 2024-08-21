@@ -918,7 +918,7 @@ namespace CoreSystems.Platform
         public void ShowHitChanceNotification(double hitChance)
         {
             string message = $"Hit Chance: {hitChance * 100:0.00}%";
-            MyAPIGateway.Utilities.ShowNotification(message, 1000/60, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification(message, 1000, MyFontEnum.White);
         }
 
         public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
@@ -953,7 +953,6 @@ namespace CoreSystems.Platform
             }
             else if (!updateGravity)
                 weapon.GravityPoint = Vector3D.Zero;
-
             #endregion
 
             Vector3D deltaVel = targetVel - shooterVel;
@@ -1000,6 +999,7 @@ namespace CoreSystems.Platform
             }
 
             valid = true;
+            double usedTti = initialTti;
             if (useSimple)
             {
                 aimPoint = targetPos + (initialTti) * (targetVel - shooterVel);
@@ -1008,25 +1008,29 @@ namespace CoreSystems.Platform
             {
                 var advTti = initialTti;
                 var projAccelTime = ammoDef.Const.DesiredProjectileSpeed / ammoDef.Const.AccelInMetersPerSec;
-                var usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
+                usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
                 aimPoint = targetPos + (usedTti + (ammoDef.Const.AmmoSkipAccel ? 0 : (projAccelTime / usedTti))) * (targetVel - shooterVel);
             }
 
-            // Calculate hit chance based on the AI's calculations
-            double hitChance = CalculateHitChance(weapon, deltaLength, valid);
-            weapon.ShowHitChanceNotification(hitChance);
+            // Debug: Display intermediate values
+            MyAPIGateway.Utilities.ShowNotification($"Delta Length: {deltaLength:F2} m", 1000, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification($"Initial TTI: {initialTti:F2} s", 1000, MyFontEnum.White);
+            MyAPIGateway.Utilities.ShowNotification($"Used TTI: {usedTti:F2} s", 1000, MyFontEnum.White);
 
-            // Check if the time-to-intercept is greater than half of the maximum travel time
-            double maxTravelTime = ammoDef.Const.MaxTrajectory / projectileMaxSpeed;
-            double closingSpeedPercentage = Vector3D.Dot(deltaVel, deltaPosNorm) / projectileMaxSpeed;
-            double interceptThreshold = maxTravelTime * 0.5 * (1 - closingSpeedPercentage);
-
-            if (initialTti > interceptThreshold)
+            // Calculate hit probability
+            double hitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid);
+                                                                                        
+            // Check hit probability threshold
+            if (hitProbability < 0.1) // Threshold can be adjusted as needed
             {
                 valid = false;
-                weapon.Target.ImpossibleToHit = true; // Mark target as impossible to hit
+                weapon.Target.ImpossibleToHit = true;
+                MyAPIGateway.Utilities.ShowNotification("Hit Probability too low, will not fire", 1000, MyFontEnum.Red);
                 return targetPos;
             }
+
+            weapon.ShowHitChanceNotification(hitProbability * 100);
+            MyAPIGateway.Utilities.ShowNotification($"Hit Probability: {hitProbability * 100:F2}%", 1000, MyFontEnum.White);
 
             Vector3D gravityOffset = Vector3D.Zero;
             if (updateGravity && !MyUtils.IsZero(weapon.GravityPoint))
@@ -1087,20 +1091,37 @@ namespace CoreSystems.Platform
             return aimPoint + gravityOffset;
         }
 
-        private static double CalculateHitChance(Weapon weapon, double distanceToTarget, bool validEstimate)
+        private static double CalculateHitProbability(Weapon weapon, Vector3D targetPos, Vector3D deltaPosNorm, Vector3D targetVel, Vector3D targetAcc, double deltaLength, double timeToIntercept, bool validEstimate)
         {
-            // Calculate hit chance based on AI's existing calculations
-            double distanceFactor = 1.0 - (distanceToTarget / weapon.MaxTargetDistance);
-            double validityFactor = validEstimate ? 1.0 : 0.0; // If the estimate is not valid, the hit chance is zero
-            double trackingFactor = weapon.TurretController ? 1.0 : 0.0; // Check if turret can track the target
+            var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
+            var projectileSpeed = ammoDef.Const.DesiredProjectileSpeed;
+            var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
 
-            // Combine factors to get hit chance
-            double hitChance = distanceFactor * validityFactor * trackingFactor;
+            // Estimate the target's future position at impact
+            Vector3D futureTargetPos = targetPos + (targetVel * timeToIntercept) + (0.5 * targetAcc * timeToIntercept * timeToIntercept);
 
-            // Clamp to valid range [0, 1]
-            return MathHelper.Clamp(hitChance, 0.0, 1.0);
+            // Angular size of the target
+            double targetAngularSize = Math.Atan2(ammoDef.Const.CollisionSize * 2, deltaLength);
+
+            // Accuracy cone size at target distance
+            double accuracyConeSize = Math.Tan(weaponAccuracy) * deltaLength;
+
+            // Calculate hit probability
+            double hitProbability = Math.Min(1, targetAngularSize / (accuracyConeSize + 1e-6));
+
+            // Adjust probability based on target velocity and acceleration
+            double velocityFactor = 1 / (1 + targetVel.Length() / 100);
+            double accelerationFactor = 1 / (1 + targetAcc.Length() / 10);
+
+            // Combine factors
+            hitProbability *= velocityFactor * accelerationFactor;
+
+            // Apply a validity factor
+            hitProbability *= validEstimate ? 1.0 : 0.0;
+
+            // Clamp hit probability to [0, 1]
+            return MathHelper.Clamp(hitProbability, 0.0, 1.0);
         }
-
 
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
