@@ -919,12 +919,7 @@ namespace CoreSystems.Platform
             var comp = weapon.Comp;
             var ai = comp.Ai;
             var session = Session.I;
-            //var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
-            //var shooterVel = ai != null ? (Vector3D)ai.TopEntityVel : Vector3D.Zero;
-            //var projectileMaxSpeed = ammoDef.Const.DesiredProjectileSpeed * weapon.VelocityMult;
-            //var updateGravity = ammoDef.Const.FeelsGravity && ai != null && ai.InPlanetGravity;
-            //var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5;
-
+ 
             #region Must Have Updates
             if (ai.VelocityUpdateTick != session.Tick)
             {
