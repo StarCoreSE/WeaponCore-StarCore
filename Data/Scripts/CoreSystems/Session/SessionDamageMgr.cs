@@ -436,6 +436,11 @@ namespace CoreSystems
                         smallVsLargeBuff = 0.25f;
                 }
             }
+            var gridSizeBuff = 1f;
+            if (grid.GridSizeEnum == MyCubeSize.Large)
+                gridSizeBuff = Settings.Enforcement.LargeGridDamageMultiplier;
+            else
+                gridSizeBuff = Settings.Enforcement.SmallGridDamageMultiplier;
 
             for (int i = 0; i < blockCount; i++)
             {
@@ -675,9 +680,9 @@ namespace CoreSystems
                         var rootStep = k == 0 && j == 0 && !detActive;
                         var primaryDamage = rootStep && block == rootBlock && !detActive;//limits application to first run w/AOE, suppresses with detonation
 
-                        var baseScale = damageScale * directDamageScale * smallVsLargeBuff;
+                        var baseScale = damageScale * directDamageScale * smallVsLargeBuff * gridSizeBuff;
                         var scaledDamage = (float)(basePool * baseScale);
-                        var aoeScaledDmg = (float)((aoeDamageFall * (detActive ? detDamageScale : areaDamageScale)) * damageScale);
+                        var aoeScaledDmg = (float)((aoeDamageFall * (detActive ? detDamageScale : areaDamageScale)) * damageScale * gridSizeBuff);
                         bool deadBlock = false;
 
                         //Check for end of primary life
@@ -772,7 +777,7 @@ namespace CoreSystems
                                 {
                                     appliedImpulse = true;
                                     var speed = !t.AmmoDef.Const.IsBeamWeapon && t.AmmoDef.Const.DesiredProjectileSpeed * t.Weapon.VelocityMult > 0 ? t.AmmoDef.Const.DesiredProjectileSpeed * t.Weapon.VelocityMult : 1;
-                                    //ApplyProjectileForce(grid, grid.GridIntegerToWorld(rootBlock.Position), hitEnt.Intersection.Direction, (hitMass * speed)); //nothin personnel kid
+                                    ApplyProjectileForce(grid, grid.GridIntegerToWorld(rootBlock.Position), hitEnt.Intersection.Direction, (hitMass * speed));
                                 }
 
                                 if (!deadBlock || gridBlockCount < 2500)
@@ -1405,9 +1410,9 @@ namespace CoreSystems
 
         public static void ApplyProjectileForce(MyEntity entity, Vector3D intersectionPosition, Vector3 normalizedDirection, float impulse)
         {
-            if (entity.Physics == null || !entity.Physics.Enabled || entity.Physics.IsStatic || entity.Physics.Mass / impulse > 500)
-                return;
-            entity.Physics.AddForce(MyPhysicsForceType.APPLY_WORLD_IMPULSE_AND_WORLD_ANGULAR_IMPULSE, normalizedDirection * impulse, intersectionPosition, Vector3.Zero);
+            //if (entity.Physics == null || !entity.Physics.Enabled || entity.Physics.IsStatic || entity.Physics.Mass / impulse > 500)
+            //    return;
+            //entity.Physics.AddForce(MyPhysicsForceType.APPLY_WORLD_IMPULSE_AND_WORLD_ANGULAR_IMPULSE, normalizedDirection * impulse, intersectionPosition, Vector3.Zero);
         }
 
         internal bool HitDoor(HitEntity hitEnt, MyDoorBase door)

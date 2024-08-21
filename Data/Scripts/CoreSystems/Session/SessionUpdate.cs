@@ -15,6 +15,7 @@ using Sandbox.ModAPI.Weapons;
 using SpaceEngineers.Game.ModAPI;
 using VRage.Game.Entity;
 using VRage.Game;
+using VRage.Game.ModAPI;
 
 namespace CoreSystems
 {
@@ -45,8 +46,10 @@ namespace CoreSystems
                 if (!ai.ScanInProgress && Tick - ai.TargetsUpdatedTick > 100 && DbTask.IsComplete)
                     ai.RequestDbUpdate();
 
-                if (ai.DeadProjectiles.Count > 0) {
-                    for (int i = 0; i < ai.DeadProjectiles.Count; i++) ai.LiveProjectile.Remove(ai.DeadProjectiles[i]);
+                if (ai.DeadProjectiles.Count > 0) 
+                {
+                    foreach (var dead in ai.DeadProjectiles)
+                        ai.LiveProjectile.Remove(dead);
                     ai.DeadProjectiles.Clear();
                     ai.LiveProjectileTick = Tick;
                 }
@@ -627,6 +630,7 @@ namespace CoreSystems
                         var weaponAcquires = ai.AcquireTargets && (aConst.RequiresTarget || w.RotorTurretTracking || w.ShootRequest.AcquireTarget);
                         var eTarget = w.Target.TargetObject as MyEntity;
                         var pTarget = w.Target.TargetObject as Projectile;
+                        var cTarget = w.Target.TargetObject as IMyCharacter;
                         if (!IsClient)
                         {
                             if (w.Target.HasTarget)
@@ -639,7 +643,7 @@ namespace CoreSystems
                                 {
                                     w.Target.Reset(Tick, States.Expired, !wComp.ManualMode);
                                 }
-                                else if (eTarget != null && (eTarget.MarkedForClose || !rootConstruct.HadFocus && weaponAcquires && aConst.SkipAimChecks && !w.RotorTurretTracking || wComp.UserControlled && !w.System.SuppressFire))
+                                else if (eTarget != null && (eTarget.MarkedForClose || (cTarget!= null && (cTarget.IsDead || cTarget.Integrity <= 0)) || !rootConstruct.HadFocus && weaponAcquires && aConst.SkipAimChecks && !w.RotorTurretTracking || wComp.UserControlled && !w.System.SuppressFire))
                                 {
                                     w.Target.Reset(Tick, States.Expired);
                                 }

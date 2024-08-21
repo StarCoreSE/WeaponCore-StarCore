@@ -1,4 +1,5 @@
 ﻿using Sandbox.Game.Entities;
+using Sandbox.ModAPI;
 using System;
 using System.Collections.Generic;
 using VRage.Game;
@@ -8,6 +9,7 @@ using static CoreSystems.Settings.CoreSettings.ServerSettings;
 using static CoreSystems.Support.PartAnimation;
 using static CoreSystems.Support.WeaponDefinition;
 using static CoreSystems.Support.WeaponDefinition.AmmoDef.AreaOfDamageDef;
+using static CoreSystems.Support.WeaponDefinition.AnimationDef;
 using static CoreSystems.Support.WeaponDefinition.AnimationDef.PartAnimationSetDef;
 using static CoreSystems.Support.WeaponDefinition.HardPointDef;
 using static CoreSystems.Support.WeaponDefinition.TargetingDef.CommunicationDef;
@@ -32,7 +34,7 @@ namespace CoreSystems.Support
         public Dictionary<string, EmissiveState> PartEmissiveSet;
         public Dictionary<string, Matrix[]> PartLinearMoveSet;
         public string[] HeatingSubparts;
-
+        public Dictionary<string, PartEmissive> EmissiveLookup;
     }
 
     internal class UpgradeSystem : CoreSystem
@@ -56,7 +58,7 @@ namespace CoreSystems.Support
             StayCharged = values.HardPoint.Other.StayCharged;
             IdlePower = values.HardPoint.HardWare.IdlePower > 0 ? values.HardPoint.HardWare.IdlePower : 0.001f;
 
-            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents);
+            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents, out EmissiveLookup);
 
         }
     }
@@ -80,7 +82,7 @@ namespace CoreSystems.Support
             StayCharged = values.HardPoint.Other.StayCharged;
             IdlePower = values.HardPoint.HardWare.IdlePower > 0 ? values.HardPoint.HardWare.IdlePower : 0.001f;
 
-            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents);
+            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents, out EmissiveLookup);
 
         }
     }
@@ -232,6 +234,7 @@ namespace CoreSystems.Support
         public readonly float MaxTargetRadius;
         public readonly float MaxAmmoVolume;
         public readonly float FullAmmoVolume;
+        public readonly float LowAmmoVolume;
         public readonly float FiringSoundDistSqr;
         public readonly float ReloadSoundDistSqr;
         public readonly float BarrelSoundDistSqr;
@@ -277,8 +280,9 @@ namespace CoreSystems.Support
             WeaponId = weaponId;
             PartName = partName;
             AmmoTypes = weaponAmmoTypes;
-            MaxAmmoVolume = Values.HardPoint.HardWare.InventorySize;
-            FullAmmoVolume = MaxAmmoVolume * 0.75f;
+            MaxAmmoVolume = Values.HardPoint.HardWare.InventorySize * (values.HardPoint.Loading.UseWorldInventoryVolumeMultiplier ? MyAPIGateway.Session.BlocksInventorySizeMultiplier : 1);
+            FullAmmoVolume = MaxAmmoVolume * (values.HardPoint.Loading.InventoryFillAmount > 0 ? values.HardPoint.Loading.InventoryFillAmount : 0.75f);
+            LowAmmoVolume = MaxAmmoVolume * (values.HardPoint.Loading.InventoryLowAmount > 0 ? values.HardPoint.Loading.InventoryLowAmount : 0.25f); 
             CeaseFireDelay = values.HardPoint.DelayCeaseFire;
             DelayCeaseFire = CeaseFireDelay > 0;
             DelayToFire = values.HardPoint.Loading.DelayUntilFire;
@@ -365,7 +369,7 @@ namespace CoreSystems.Support
             GetThreats(out Threats, out ProjectilesFirst, out ProjectilesOnly);
             SubSystems(out TargetSubSystems, out OnlySubSystems);
             ValidTargetSize(out MinTargetRadius, out MaxTargetRadius);
-            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents);
+            Session.CreateAnimationSets(Values.Animations, this, out WeaponAnimationSet, out PartEmissiveSet, out PartLinearMoveSet, out AnimationIdLookup, out PartAnimationLengths, out HeatingSubparts, out ParticleEvents, out EmissiveLookup);
 
             // CheckForBadAnimations();
 
