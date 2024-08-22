@@ -915,6 +915,11 @@ namespace CoreSystems.Platform
             return false;
         }
 
+        public void ShowHitChanceNotification(double hitChance)
+        {
+            string message = $"Hit Chance: {hitChance * 100:0.00}%";
+            MyAPIGateway.Utilities.ShowNotification(message, 1000 / 60, MyFontEnum.White);
+        }
 
         public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
         {
@@ -937,7 +942,7 @@ namespace CoreSystems.Platform
             var projectileMaxSpeed = ammoDef.Const.DesiredProjectileSpeed;
 
             var updateGravity = ammoDef.Const.FeelsGravity && ai.InPlanetGravity;
-            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5;  // equal to approx 1.58 m/s
+            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5;
 
             if (updateGravity && session.Tick - weapon.GravityTick > 119)
             {
@@ -1020,7 +1025,7 @@ namespace CoreSystems.Platform
             Vector3D bestAimPoint = aimPoint;
             double bestHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, aimPoint);
 
-            int numIterations = 10; //TODO: do NOT leave at 500
+            int numIterations = 15; //TODO: do NOT 
             double angleRange = (weapon.AimingTolerance + 1) * 2;
             double angleStep = angleRange / (numIterations - 1);
 
@@ -1108,20 +1113,11 @@ namespace CoreSystems.Platform
             var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
 
             Vector3D futureTargetPos = targetPos + (targetVel * timeToIntercept) + (0.5 * targetAcc * timeToIntercept * timeToIntercept);
+            double targetRadius = ammoDef.Const.CollisionSize;
+            double targetArea = Math.PI * targetRadius * targetRadius;
 
-            // Calculate the projected area of the bounding box onto a plane perpendicular to the aim direction
-            var targetBox = weapon.TargetBox;
-            var aimDirection = Vector3D.Normalize(aimPoint - weapon.MyPivotPos);
-            var projectedDimensions = new Vector3D(
-                Vector3D.Dot(targetBox.HalfExtent, Vector3D.Abs(Vector3D.Cross(aimDirection, targetBox.Orientation.Right))),
-                Vector3D.Dot(targetBox.HalfExtent, Vector3D.Abs(Vector3D.Cross(aimDirection, targetBox.Orientation.Up))),
-                Vector3D.Dot(targetBox.HalfExtent, Vector3D.Abs(Vector3D.Cross(aimDirection, -targetBox.Orientation.Forward)))
-            );
-            double projectedArea = 1 * (projectedDimensions.X * projectedDimensions.Y + projectedDimensions.X * projectedDimensions.Z + projectedDimensions.Y * projectedDimensions.Z);
-
-            double targetArea = projectedArea;
-            double aimDistance = Vector3D.Distance(weapon.MyPivotPos, aimPoint);
-            double accuracyConeRadius = Math.Tan(weaponAccuracy) * aimDistance;
+            Vector3D aimDirection = Vector3D.Normalize(aimPoint - deltaPosNorm);
+            double accuracyConeRadius = Math.Tan(weaponAccuracy) * deltaLength;
             double accuracyConeArea = Math.PI * accuracyConeRadius * accuracyConeRadius;
 
             double baseProbability = validEstimate ? 0.5 : 0.05;
@@ -1134,7 +1130,6 @@ namespace CoreSystems.Platform
 
             return MathHelper.Clamp(hitProbability, 0.01, 1.0);
         }
-
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
             // deltaPos computed twice, once before and once after Angular estimation.  We just return usedTti as initialTti since it should always be superior.
