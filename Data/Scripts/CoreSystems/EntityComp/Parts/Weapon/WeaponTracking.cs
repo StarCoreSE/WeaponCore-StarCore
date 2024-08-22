@@ -1025,8 +1025,9 @@ namespace CoreSystems.Platform
             Vector3D bestAimPoint = aimPoint;
             double bestHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, aimPoint);
 
-            int numIterations = 15; //TODO: do NOT 
-            double angleRange = (weapon.AimingTolerance + 1) * 2;
+
+            int numIterations = 12; //TODO: do NOT 
+            double angleRange = weapon.AimingTolerance * 2;
             double angleStep = angleRange / (numIterations - 1);
 
             Vector3D aimDirection = Vector3D.Normalize(aimPoint - shooterPos);
@@ -1112,7 +1113,6 @@ namespace CoreSystems.Platform
             var projectileSpeed = ammoDef.Const.DesiredProjectileSpeed;
             var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
 
-            Vector3D futureTargetPos = targetPos + (targetVel * timeToIntercept) + (0.5 * targetAcc * timeToIntercept * timeToIntercept);
             double targetRadius = ammoDef.Const.CollisionSize;
             double targetArea = Math.PI * targetRadius * targetRadius;
 
