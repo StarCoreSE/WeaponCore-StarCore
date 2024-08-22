@@ -87,7 +87,7 @@ namespace CoreSystems.Platform
             }
 
             double hitChance = validEstimate ? 1.0 : 0.0; // Simple logic, you might want to replace this with actual calculation based on your requirements
-            weapon.ShowHitChanceNotification(hitChance);
+           // weapon.ShowHitChanceNotification(hitChance);
 
             return !selfHit && (inRange && canTrack || weapon.Comp.Data.Repo.Values.State.TrackingReticle);
         }
@@ -895,7 +895,7 @@ namespace CoreSystems.Platform
                     xn *= timeToIntercept;
                 }
 
-                if (Math.Abs(value) < tolerance)
+                if (Math.Abs(value) < tolerance || double.IsNaN(value)) 
                     return true;
 
                 // Derivative
@@ -907,7 +907,7 @@ namespace CoreSystems.Platform
                     xn1 *= timeToIntercept;
                 }
 
-                if (MyUtils.IsZero(deriv, 1e-10f)) 
+                if (MyUtils.IsZero(deriv, 1e-10f) || double.IsNaN(deriv)) 
                     break;
 
                 timeToIntercept -= value / deriv;
@@ -929,7 +929,6 @@ namespace CoreSystems.Platform
             var ai = comp.Ai;
             var session = Session.I;
 
-            #region Must Have Updates
             if (ai.VelocityUpdateTick != session.Tick)
             {
                 ai.TopEntityVolume.Center = comp.TopEntity.PositionComp.WorldVolume.Center;
@@ -937,11 +936,13 @@ namespace CoreSystems.Platform
                 ai.IsStatic = comp.TopEntity.Physics?.IsStatic ?? false;
                 ai.VelocityUpdateTick = session.Tick;
             }
+
             var shooterVel = (Vector3D)weapon.Comp.Ai.TopEntityVel;
             var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
             var projectileMaxSpeed = ammoDef.Const.DesiredProjectileSpeed;
+
             var updateGravity = ammoDef.Const.FeelsGravity && ai.InPlanetGravity;
-            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5; // equal to approx 1.58 m/s
+            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5;  // equal to approx 1.58 m/s
 
             if (updateGravity && session.Tick - weapon.GravityTick > 119)
             {
@@ -952,24 +953,29 @@ namespace CoreSystems.Platform
                 weapon.GravityLength = weapon.GravityUnitDir.Normalize();
             }
             else if (!updateGravity)
+            {
                 weapon.GravityPoint = Vector3D.Zero;
-            #endregion
+            }
 
             Vector3D deltaVel = targetVel - shooterVel;
             double deltaLength;
             double initialTti;
+
             Vector3D deltaPos = targetPos - shooterPos;
             if (Vector3D.IsZero(deltaPos))
+            {
                 return targetPos;
+            }
 
             Vector3D deltaPosNorm;
             double closingSpeed;
-
             var targCube = weapon.Target?.TargetObject as MyCubeBlock;
             if (!basicPrediction && trackAngular && targCube != null && targCube.CubeGrid.Physics != null && targCube.CubeGrid.Physics.AngularVelocity.LengthSquared() > 0.0014)
             {
                 if (!ComputeAngular(targCube.CubeGrid, ai, ammoDef, ref targetPos, ref shooterPos, ref targetAcc, ref deltaVel, projectileMaxSpeed, out deltaLength, out initialTti, out deltaPos, out deltaPosNorm))
+                {
                     return targetPos;
+                }
             }
             else
             {
@@ -986,20 +992,24 @@ namespace CoreSystems.Platform
 
                 Vector3D.Dot(ref deltaVel, ref deltaPosNorm, out closingSpeed);
                 initialTti = (projectileMaxSpeed * projectileMaxSpeed) - (deltaVel - (closingSpeed * deltaPosNorm)).LengthSquared();
-
                 if (initialTti <= 0)
+                {
                     return targetPos;
+                }
 
                 double closingDistance;
                 Vector3D.Dot(ref deltaPos, ref deltaPosNorm, out closingDistance);
                 initialTti = closingDistance / (Math.Sqrt(initialTti) - closingSpeed);
-
                 if (initialTti <= 0)
+                {
                     return targetPos;
+                }
             }
 
             valid = true;
+
             double usedTti = initialTti;
+
             if (useSimple)
             {
                 aimPoint = targetPos + (initialTti) * (targetVel - shooterVel);
@@ -1008,29 +1018,35 @@ namespace CoreSystems.Platform
             {
                 var advTti = initialTti;
                 var projAccelTime = ammoDef.Const.DesiredProjectileSpeed / ammoDef.Const.AccelInMetersPerSec;
-                usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
+                usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage, 1e-6) ? advTti : initialTti;
                 aimPoint = targetPos + (usedTti + (ammoDef.Const.AmmoSkipAccel ? 0 : (projAccelTime / usedTti))) * (targetVel - shooterVel);
             }
 
-            // Debug: Display intermediate values
-            MyAPIGateway.Utilities.ShowNotification($"Delta Length: {deltaLength:F2} m", 1000, MyFontEnum.White);
-            MyAPIGateway.Utilities.ShowNotification($"Initial TTI: {initialTti:F2} s", 1000 / 60, MyFontEnum.White);
-            MyAPIGateway.Utilities.ShowNotification($"Used TTI: {usedTti:F2} s", 1000, MyFontEnum.White);
+            Vector3D bestAimPoint = aimPoint;
+            double bestHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, aimPoint);
 
-            // Calculate hit probability
-            double hitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid);
+            int numIterations = 500; //TODO: do NOT leave at 500
+            double angleRange = (weapon.AimingTolerance + 1) * 2;
+            double angleStep = angleRange / (numIterations - 1);
 
-            // Check hit probability threshold
-            if (hitProbability < 0.1) // Threshold can be adjusted as needed
+            Vector3D aimDirection = Vector3D.Normalize(aimPoint - shooterPos);
+            Vector3D rotationAxis = Vector3D.Cross(aimDirection, weapon.MyPivotUp);
+
+            for (int i = 0; i < numIterations; i++)
             {
-                valid = false;
-                weapon.Target.ImpossibleToHit = true;
-                MyAPIGateway.Utilities.ShowNotification("Hit Probability too low, will not fire", 1000 / 60, MyFontEnum.Red);
-                return targetPos;
+                double angle = (i - numIterations / 2) * angleStep;
+                Vector3D testAimDirection = Vector3D.Transform(aimDirection, MatrixD.CreateFromAxisAngle(rotationAxis, MathHelper.ToRadians(angle)));
+                Vector3D testAimPoint = shooterPos + testAimDirection * deltaLength;
+                double testHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, testAimPoint);
+
+                if (testHitProbability > bestHitProbability)
+                {
+                    bestAimPoint = testAimPoint;
+                    bestHitProbability = testHitProbability;
+                }
             }
 
-            weapon.ShowHitChanceNotification(hitProbability * 100);
-            MyAPIGateway.Utilities.ShowNotification($"Hit Probability: {hitProbability * 100:F2}%", 1000, MyFontEnum.White);
+            aimPoint = bestAimPoint;
 
             Vector3D gravityOffset = Vector3D.Zero;
             if (updateGravity && !MyUtils.IsZero(weapon.GravityPoint))
@@ -1038,43 +1054,42 @@ namespace CoreSystems.Platform
                 var gravPointDot = Vector3D.Dot(weapon.GravityUnitDir, deltaPosNorm);
                 var targetAngle = Math.Acos(gravPointDot);
                 double elevationDifference;
-                if (targetAngle >= 1.5708) // Target is above weapon
+                if (targetAngle >= 1.5708)
                 {
-                    targetAngle -= 1.5708; // angle-90
+                    targetAngle -= 1.5708;
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
-                else // Target is below weapon
+                else
                 {
-                    targetAngle = 1.5708 - targetAngle; // 90-angle
+                    targetAngle = 1.5708 - targetAngle;
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
-                var horizontalDistance = Math.Sqrt(deltaLength * deltaLength - elevationDifference * elevationDifference);
 
+                var horizontalDistance = Math.Sqrt(deltaLength * deltaLength - elevationDifference * elevationDifference);
                 var g = -(weapon.GravityLength * ammoDef.Const.GravityMultiplier);
                 var v = projectileMaxSpeed;
                 var h = elevationDifference;
                 var d = horizontalDistance;
 
                 var angleCheck = (v * v * v * v) - 2 * (v * v) * -h * g - (g * g) * (d * d);
-
                 if (angleCheck <= 0)
+                {
                     valid = false;
+                }
                 else
                 {
                     var angleSqrt = Math.Sqrt(angleCheck);
-                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d)); // Higher angle
-                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d)); // Lower angle
-
-                    var verticalDistance = Math.Tan(angle2) * horizontalDistance; // without below-the-horizon modifier
+                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d));
+                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d));
+                    var verticalDistance = Math.Tan(angle2) * horizontalDistance;
                     gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
 
                     if (angle1 < 1.57)
                     {
                         var targetAimPoint = aimPoint + gravityOffset;
                         var targetDirection = targetAimPoint - shooterPos;
-
                         bool isTracking;
-                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking)) // Angle 2 obscured, switch to angle 1
+                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking))
                         {
                             verticalDistance = Math.Tan(angle1) * horizontalDistance;
                             gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
@@ -1091,40 +1106,30 @@ namespace CoreSystems.Platform
             return aimPoint + gravityOffset;
         }
 
-        private static double CalculateHitProbability(Weapon weapon, Vector3D targetPos, Vector3D deltaPosNorm, Vector3D targetVel, Vector3D targetAcc, double deltaLength, double timeToIntercept, bool validEstimate)
+        private static double CalculateHitProbability(Weapon weapon, Vector3D targetPos, Vector3D deltaPosNorm, Vector3D targetVel, Vector3D targetAcc, double deltaLength, double timeToIntercept, bool validEstimate, Vector3D aimPoint)
         {
             var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
             var projectileSpeed = ammoDef.Const.DesiredProjectileSpeed;
             var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
 
-            // Estimate the target's future position at impact
             Vector3D futureTargetPos = targetPos + (targetVel * timeToIntercept) + (0.5 * targetAcc * timeToIntercept * timeToIntercept);
+            double targetRadius = ammoDef.Const.CollisionSize;
+            double targetArea = Math.PI * targetRadius * targetRadius;
 
-            // Angular size of the target
-            double targetAngularSize = Math.Atan2(ammoDef.Const.CollisionSize * 2, deltaLength);
+            Vector3D aimDirection = Vector3D.Normalize(aimPoint - weapon.MyPivotPos);
+            double accuracyConeRadius = Math.Tan(weaponAccuracy) * deltaLength;
+            double accuracyConeArea = Math.PI * accuracyConeRadius * accuracyConeRadius;
 
-            // Accuracy cone size at target distance
-            double accuracyConeSize = Math.Tan(weaponAccuracy) * deltaLength;
+            double baseProbability = validEstimate ? 0.5 : 0.05;
+            double hitProbability = Math.Min(1, targetArea / (accuracyConeArea + 1e-6)) * baseProbability;
 
-            // Calculate hit probability
-            double baseProbability = 0.5; // Base probability to account for stationary targets
-            double hitProbability = Math.Min(1, targetAngularSize / (accuracyConeSize + 1e-6)) * baseProbability;
+            double velocityFactor = 1 / (1 + targetVel.Length() / 200);
+            double accelerationFactor = 1 / (1 + targetAcc.Length() / 20);
 
-            // Adjust probability based on target velocity and acceleration (with reduced impact)
-            double velocityFactor = 1 / (1 + targetVel.Length() / 200); // Less impact from velocity
-            double accelerationFactor = 1 / (1 + targetAcc.Length() / 20); // Less impact from acceleration
-
-            // Combine factors
             hitProbability *= velocityFactor * accelerationFactor;
 
-            // Apply a validity factor
-            hitProbability *= validEstimate ? 1.0 : 0.1; // If not valid, reduce probability but don't zero it out
-
-            // Clamp hit probability to [0, 1]
-            return MathHelper.Clamp(hitProbability, 0.05, 1.0); // Ensure a minimum probability of 5%
+            return MathHelper.Clamp(hitProbability, 0.01, 1.0);
         }
-
-
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
             // deltaPos computed twice, once before and once after Angular estimation.  We just return usedTti as initialTti since it should always be superior.
@@ -1434,10 +1439,10 @@ namespace CoreSystems.Platform
             }
 
             if (MinElToleranceRadians > MaxElToleranceRadians)
-                MinElToleranceRadians -= 6.283185f;
+                MinElToleranceRadians -= 6.283185; //changed to double for precision vibecheck
 
             if (MinAzToleranceRadians > MaxAzToleranceRadians)
-                MinAzToleranceRadians -= 6.283185f;
+                MinAzToleranceRadians -= 6.283185; //changed to double for precision vibecheck
 
             var dummyInfo = Dummies[MiddleMuzzleIndex].Info;
 
