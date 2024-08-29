@@ -1132,59 +1132,92 @@ namespace CoreSystems.Platform
         }
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
-            // deltaPos computed twice, once before and once after Angular estimation.  We just return usedTti as initialTti since it should always be superior.
+            // Calculate the initial delta position (vector from shooter to target)
             deltaPos = targetPos - shooterPos;
 
-            if (Vector3D.IsUnit(ref deltaPos))
+            // Normalize deltaPos to obtain deltaPosNorm and calculate deltaLength
+            deltaLength = deltaPos.Length(); // Calculate the length (magnitude) of the deltaPos vector
+            if (deltaLength > 1e-6) // Avoid division by zero or very small values
             {
-                deltaPosNorm = deltaPos;
-                deltaLength = 1;
+                deltaPosNorm = deltaPos / deltaLength; // Normalize the vector
             }
             else
             {
-                deltaPosNorm = deltaPos;
-                deltaLength = deltaPosNorm.Normalize();
+                deltaPosNorm = Vector3D.Zero; // Handle the degenerate case
+                deltaLength = 0;
             }
 
-            double closingSpeed;
-            Vector3D.Dot(ref deltaVel, ref deltaPosNorm, out closingSpeed);
-            initialTti = (projectileMaxSpeed * projectileMaxSpeed) - (deltaVel - (closingSpeed * deltaPosNorm)).LengthSquared();
+            // Calculate the closing speed (projection of deltaVel onto deltaPosNorm)
+            double closingSpeed = Vector3D.Dot(deltaVel, deltaPosNorm);
 
+            // Initial time-to-intercept (Tti) calculation using projectile speed and delta velocity
+            double speedSquared = projectileMaxSpeed * projectileMaxSpeed;
+            double velocityDiffLengthSquared = (deltaVel - closingSpeed * deltaPosNorm).LengthSquared();
+            initialTti = speedSquared - velocityDiffLengthSquared;
+
+            // If the calculated Tti is non-physical, return false
             if (initialTti <= 0)
                 return false;
 
-            double closingDistance;
-            Vector3D.Dot(ref deltaPos, ref deltaPosNorm, out closingDistance);
+            // Calculate closing distance (projection of deltaPos onto deltaPosNorm)
+            double closingDistance = Vector3D.Dot(deltaPos, deltaPosNorm);
+
+            // Refine initial Tti based on calculated values
             initialTti = closingDistance / (Math.Sqrt(initialTti) - closingSpeed);
 
+            // If refined Tti is non-physical, return false
             if (initialTti <= 0)
                 return false;
 
-            var advTti = initialTti;
-            var usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
-            var targCom = grid.Physics.CenterOfMassWorld;
-            var targAngVel = grid.Physics.AngularVelocity; //Radians per second
-            var targAngVelLen = targAngVel.Normalize();
-            var angleTravelled = targAngVelLen * usedTti;
-            var dirFromCom = targetPos - targCom;
-            var distFromCom = dirFromCom.Normalize();
-            var matrix = MatrixD.CreateFromAxisAngle(targAngVel, angleTravelled);
-            var matrixRot = Vector3D.Rotate(dirFromCom, matrix);
-            initialTti = usedTti;
+            // Further refine Tti using a Quartic Solver
+            double advancedTti = initialTti;
+            double desiredSpeed = ammoDef.Const.DesiredProjectileSpeed;
+            bool solved = QuarticSolver(ref advancedTti, deltaPos, deltaVel, targetAcc, desiredSpeed, ai.QuadraticCoefficientsStorage);
+            double usedTti = solved ? advancedTti : initialTti;
 
-            if (initialTti <= 0)
-                return false;
+            // Calculate target's angular velocity and the angle traveled during Tti
+            Vector3D targCom = grid.Physics.CenterOfMassWorld;
+            Vector3D targAngVel = grid.Physics.AngularVelocity;
+            double targAngVelLen = targAngVel.Length(); // Get angular velocity vector length
+            if (targAngVelLen > 1e-6) // Avoid issues with very small angular velocities
+            {
+                targAngVel /= targAngVelLen; // Normalize angular velocity vector
+            }
 
-            // re-run since we changed the targetPos
-            targetPos = targCom + matrixRot * distFromCom;
+            double angleTravelled = targAngVelLen * usedTti;
 
-            deltaPos = targetPos - shooterPos;
-            if (Vector3D.IsZero(deltaPos))
-                deltaLength = 0;
-            else if (Vector3D.IsUnit(ref deltaPos))
-                deltaLength = 1;
+            // Calculate the direction from the center of mass to the target
+            Vector3D dirFromCom = targetPos - targCom;
+            double distFromCom = dirFromCom.Length(); // Calculate the distance from the COM
+            if (distFromCom > 1e-6) // Avoid division by zero or very small values
+            {
+                dirFromCom /= distFromCom; // Normalize the direction vector
+            }
             else
-                deltaLength = deltaPosNorm.Normalize();
+            {
+                dirFromCom = Vector3D.Zero; // Handle the degenerate case
+                distFromCom = 0;
+            }
+
+            // Create a rotation matrix based on angular velocity and angle travelled
+            MatrixD rotationMatrix = MatrixD.CreateFromAxisAngle(targAngVel, angleTravelled);
+            Vector3D rotatedDirection = Vector3D.Rotate(dirFromCom, rotationMatrix);
+
+            // Update target position after applying the rotation
+            targetPos = targCom + rotatedDirection * distFromCom;
+
+            // Recalculate delta position and normalize it to obtain the final deltaLength
+            deltaPos = targetPos - shooterPos;
+            deltaLength = deltaPos.Length(); // Recalculate the length (magnitude)
+            if (deltaLength > 1e-6) // Avoid division by zero or very small values
+            {
+                deltaPosNorm = deltaPos / deltaLength; // Normalize the vector
+            }
+            else
+            {
+                deltaPosNorm = Vector3D.Zero; // Handle the degenerate case
+                deltaLength = 0;
+            }
 
             return true;
         }
