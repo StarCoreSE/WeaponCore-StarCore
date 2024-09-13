@@ -15,6 +15,8 @@ namespace CoreSystems.Platform
     public partial class Weapon 
     {
 
+        internal double CurrentHitChance { get; set; }
+
         internal void PositionChanged(MyPositionComponentBase pComp)
         {
             if (PosChangedTick != Session.I.SimulationCount)
