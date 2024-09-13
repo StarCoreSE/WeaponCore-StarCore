@@ -87,7 +87,7 @@ namespace CoreSystems.Platform
             }
 
             double hitChance = validEstimate ? 1.0 : 0.0; // Simple logic, you might want to replace this with actual calculation based on your requirements
-           // weapon.ShowHitChanceNotification(hitChance);
+            weapon.ShowHitChanceNotification(hitChance);
 
             return !selfHit && (inRange && canTrack || weapon.Comp.Data.Repo.Values.State.TrackingReticle);
         }
