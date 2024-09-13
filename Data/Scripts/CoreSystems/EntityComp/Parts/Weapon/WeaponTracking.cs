@@ -1107,22 +1107,40 @@ namespace CoreSystems.Platform
             var projectileSpeed = ammoDef.Const.DesiredProjectileSpeed;
             var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
 
+            // If the estimate isn't valid, return 0
+            if (!validEstimate)
+            {
+                return 0;
+            }
+
+            // Calculate the area of the target
             double targetRadius = ammoDef.Const.CollisionSize;
             double targetArea = Math.PI * targetRadius * targetRadius;
 
-            Vector3D aimDirection = Vector3D.Normalize(aimPoint - deltaPosNorm);
+            // Calculate the area of the accuracy cone at the target distance
             double accuracyConeRadius = Math.Tan(weaponAccuracy) * deltaLength;
             double accuracyConeArea = Math.PI * accuracyConeRadius * accuracyConeRadius;
 
-            double baseProbability = validEstimate ? 0.5 : 0.05;
-            double hitProbability = Math.Min(1, targetArea / (accuracyConeArea + 1e-6)) * baseProbability;
+            // Calculate base hit probability as the ratio of target area to accuracy cone area
+            double baseHitProbability = targetArea / accuracyConeArea;
 
-            double velocityFactor = 1 / (1 + targetVel.Length() / 200);
-            double accelerationFactor = 1 / (1 + targetAcc.Length() / 20);
+            // Factor in target velocity
+            double relativeVelocity = targetVel.Length() / projectileSpeed;
+            double velocityFactor = 1 / (1 + relativeVelocity);
 
-            hitProbability *= velocityFactor * accelerationFactor;
+            // Factor in target acceleration
+            double relativeAcceleration = targetAcc.Length() * timeToIntercept / projectileSpeed;
+            double accelerationFactor = 1 / (1 + relativeAcceleration);
 
-            return MathHelper.Clamp(hitProbability, 0.01, 1.0);
+            // Factor in distance (assuming projectile speed and max lifetime are available)
+            double maxRange = projectileSpeed * ammoDef.Const.MaxLifeTime;
+            double distanceFactor = Math.Max(0, 1 - (deltaLength / maxRange));
+
+            // Calculate final hit probability
+            double hitProbability = baseHitProbability * velocityFactor * accelerationFactor * distanceFactor;
+
+            // Clamp the result between 0 and 1
+            return MathHelper.Clamp(hitProbability, 0, 1);
         }
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
