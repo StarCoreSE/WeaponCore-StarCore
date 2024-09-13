@@ -309,6 +309,14 @@ namespace WeaponCore.Data.Scripts.CoreSystems.Ui.Hud
                 {
                     textInfo.Text = "Hit: BEAM";
                 }
+                else if (weapon.ActiveAmmoDef.AmmoDef.Const.IsSmart)
+                {
+                    textInfo.Text = "Hit: SMART";
+                }
+                else if (weapon.Elevation == 0 && weapon.Azimuth == 0)
+                {
+                    textInfo.Text = "Hit: FIXED";
+                }
                 else
                 {
                     textInfo.Text = $"Hit: {weapon.CurrentHitChance}%";
