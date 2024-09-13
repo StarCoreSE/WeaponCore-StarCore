@@ -304,7 +304,7 @@ namespace WeaponCore.Data.Scripts.CoreSystems.Ui.Hud
 
                 // Add hit chance text
                 textInfo = _textDrawPool.Count > 0 ? _textDrawPool.Dequeue() : new TextDrawRequest();
-
+                //TODO: update calcs in weapontracking.cs to terminate for these weapons no need to run em on non-turrets 
                 if (weapon.ActiveAmmoDef.AmmoDef.Beams.Enable)
                 {
                     textInfo.Text = "Hit: BEAM";
@@ -313,7 +313,7 @@ namespace WeaponCore.Data.Scripts.CoreSystems.Ui.Hud
                 {
                     textInfo.Text = "Hit: SMART";
                 }
-                else if (weapon.Elevation == 0 && weapon.Azimuth == 0)
+                else if (!weapon.TurretController)
                 {
                     textInfo.Text = "Hit: FIXED";
                 }

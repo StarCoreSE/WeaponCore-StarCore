@@ -1114,6 +1114,18 @@ namespace CoreSystems.Platform
                 return 0;
             }
 
+            //don't think if you're smart
+            if (ammoDef.Const.IsSmart)
+            {
+                return 0;
+            }
+
+            //don't do any math if we're a fixed weapon
+            if (!weapon.TurretController)
+            {
+                return 0;
+            }
+
             // Check for beam weapons first
             if (ammoDef.Beams.Enable)
             {
