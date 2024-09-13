@@ -305,7 +305,15 @@ namespace WeaponCore.Data.Scripts.CoreSystems.Ui.Hud
                 // Add hit chance text
                 textInfo = _textDrawPool.Count > 0 ? _textDrawPool.Dequeue() : new TextDrawRequest();
 
-                textInfo.Text = $"Hit: {(weapon.CurrentHitChance)}%";
+                if (weapon.ActiveAmmoDef.AmmoDef.Beams.Enable)
+                {
+                    textInfo.Text = "Hit: BEAM";
+                }
+                else
+                {
+                    textInfo.Text = $"Hit: {weapon.CurrentHitChance}%";
+                }
+
                 textInfo.Color = new Vector4(1f, 1f, 0f, 1f); // Yellow color
                 textInfo.Position.X = textOffset;
                 textInfo.Position.Y = currWeaponDisplayPos.Y - _infoPaneloffset * 0.8f; // Position it between weapon name and heat bar
