@@ -1016,29 +1016,36 @@ namespace CoreSystems.Platform
             Vector3D bestAimPoint = aimPoint;
             double bestHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, aimPoint);
 
+            // Check if the weapon is set to FocusOnly
+            bool isFocusOnly = weapon.System.FocusOnly;
 
-            int numIterations = 12; //TODO: do NOT 
-            double angleRange = weapon.AimingTolerance * 2;
-            double angleStep = angleRange / (numIterations - 1);
-
-            Vector3D aimDirection = Vector3D.Normalize(aimPoint - shooterPos);
-            Vector3D rotationAxis = Vector3D.Cross(aimDirection, weapon.MyPivotUp);
-
-            for (int i = 0; i < numIterations; i++)
+            if (!isFocusOnly)
             {
-                double angle = (i - numIterations / 2) * angleStep;
-                Vector3D testAimDirection = Vector3D.Transform(aimDirection, MatrixD.CreateFromAxisAngle(rotationAxis, MathHelper.ToRadians(angle)));
-                Vector3D testAimPoint = shooterPos + testAimDirection * deltaLength;
-                double testHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, testAimPoint);
+                int numIterations = 12; //TODO: do NOT 
+                double angleRange = weapon.AimingTolerance * 2;
+                double angleStep = angleRange / (numIterations - 1);
 
-                if (testHitProbability > bestHitProbability)
+                Vector3D aimDirection = Vector3D.Normalize(aimPoint - shooterPos);
+                Vector3D rotationAxis = Vector3D.Cross(aimDirection, weapon.MyPivotUp);
+
+                for (int i = 0; i < numIterations; i++)
                 {
-                    bestAimPoint = testAimPoint;
-                    bestHitProbability = testHitProbability;
-                }
-            }
+                    double angle = (i - numIterations / 2) * angleStep;
+                    Vector3D testAimDirection = Vector3D.Transform(aimDirection,
+                        MatrixD.CreateFromAxisAngle(rotationAxis, MathHelper.ToRadians(angle)));
+                    Vector3D testAimPoint = shooterPos + testAimDirection * deltaLength;
+                    double testHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel,
+                        targetAcc, deltaLength, usedTti, valid, testAimPoint);
 
-            aimPoint = bestAimPoint;
+                    if (testHitProbability > bestHitProbability)
+                    {
+                        bestAimPoint = testAimPoint;
+                        bestHitProbability = testHitProbability;
+                    }
+                }
+
+                aimPoint = bestAimPoint;
+            }
 
             // Store the best hit probability in the weapon object
             weapon.CurrentHitChance = bestHitProbability;
