@@ -604,8 +604,8 @@ namespace CoreSystems
                         else if (w.Loading && (IsServer && Tick >= w.ReloadEndTick || IsClient && !w.Charging && w.Reload.EndId > w.ClientEndId))
                             w.Reloaded(1);
 
-                        //if (DedicatedServer && w.Reload.WaitForClient && !w.Loading && (wValues.State.PlayerId <= 0 || Tick - w.LastLoadedTick > 60))
-                        //    SendWeaponReload(w, true);
+                        if (DedicatedServer && w.Reload.WaitForClient && !w.Loading && (wValues.State.PlayerId <= 0 || Tick - w.LastLoadedTick > 60))
+                            SendWeaponReload(w, true);
 
                         ///
                         /// Update Weapon Hud Info
