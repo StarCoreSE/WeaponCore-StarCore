@@ -927,6 +927,7 @@ namespace CoreSystems
             var destObj = hitEnt.Entity as IMyDestroyableObject;
 
             if (destObj == null || entity == null) return;
+            info.ObjectsHit++;
 
             var directDmgGlobal = Settings.Enforcement.DirectDamageModifer;
             var areaDmgGlobal = Settings.Enforcement.AreaDamageModifer;
