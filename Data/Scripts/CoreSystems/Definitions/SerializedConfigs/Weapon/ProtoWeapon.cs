@@ -305,11 +305,11 @@ namespace CoreSystems
         [ProtoMember(4), DefaultValue(1)] public float RofModifier = 1;
         [ProtoMember(5), DefaultValue(100)] public float Range = 100;
         [ProtoMember(6)] public ProtoWeaponOverrides Overrides;
-        [ProtoMember(7), DefaultValue(1)] public float BaseDamageMultiplier = 1;
-        [ProtoMember(8), DefaultValue(1)] public float AreaDamageMultiplier = 1;
-        [ProtoMember(9), DefaultValue(1)] public float AreaRadiusMultiplier = 1;
-        [ProtoMember(10), DefaultValue(1)] public float VelocityMultiplier = 1;
-        [ProtoMember(11), DefaultValue(true)] public bool FiringAllowed = true;
+        /* [ProtoMember(7), DefaultValue(1)] */ public float BaseDamageMultiplier = 1;
+        /* [ProtoMember(8), DefaultValue(1)] */ public float AreaDamageMultiplier = 1;
+        /* [ProtoMember(9), DefaultValue(1)] */ public float AreaRadiusMultiplier = 1;
+        /* [ProtoMember(10), DefaultValue(1)] */ public float VelocityMultiplier = 1;
+        /* [ProtoMember(11), DefaultValue(true)] */ public bool FiringAllowed = true;
 
         public ProtoWeaponSettings()
         {
