@@ -505,7 +505,8 @@ namespace CoreSystems.Support
             var predictedShotLimit = system.PartType != HardwareDef.HardwareType.HandWeapon ? 120 : 450;
             var predictedReloadLimit = system.PartType != HardwareDef.HardwareType.HandWeapon ? 120 : 60;
 
-            ClientPredictedAmmo = predictionEligible && FixedFireAmmo && !fragHasAutonomy && !ammo.IsShrapnel && RealShotsPerMin <= predictedShotLimit && !clientPredictedAmmoDisabled;
+            //ClientPredictedAmmo = predictionEligible && FixedFireAmmo && !fragHasAutonomy && !ammo.IsShrapnel && RealShotsPerMin <= predictedShotLimit && !clientPredictedAmmoDisabled;
+            ClientPredictedAmmo = false;  //should check here in the future for CTC, customturret, rotorturret bullshit
 
             if (!ClientPredictedAmmo && predictionEligible)
                 Log.Line($"{ammo.AmmoDef.AmmoRound} is NOT enabled for client prediction");
