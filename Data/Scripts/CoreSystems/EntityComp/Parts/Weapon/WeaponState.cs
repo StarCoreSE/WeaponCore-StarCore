@@ -15,6 +15,8 @@ namespace CoreSystems.Platform
     public partial class Weapon 
     {
 
+        internal double CurrentHitChance { get; set; }
+
         internal void PositionChanged(MyPositionComponentBase pComp)
         {
             if (PosChangedTick != Session.I.SimulationCount)
@@ -467,6 +469,7 @@ namespace CoreSystems.Platform
             NoAmmo,
             NoSubSystems,
             NoTarget,
+            ImpossibleToHit,
         }
 
         internal string UpdateAndGetFriendlyName(FriendlyNames type)
@@ -492,6 +495,7 @@ namespace CoreSystems.Platform
                 FriendlyNameNoTarget = weaponName + Hud.NoTargetStr;
                 FriendlyNameNoAmmo = weaponName + Hud.NoAmmoStr;
                 FriendlyNameNoSubsystem = weaponName + Hud.NoSubSystemStr;
+                FriendlyNameImpossibleHit = weaponName + Hud.ImpossibleHitStr;
             }
 
             switch (type)
@@ -502,6 +506,8 @@ namespace CoreSystems.Platform
                     return FriendlyNameNoTarget;
                 case FriendlyNames.NoSubSystems:
                     return FriendlyNameNoSubsystem;
+                case FriendlyNames.ImpossibleToHit:
+                    return FriendlyNameImpossibleHit;
                 default:
                     return FriendlyName;
             }
