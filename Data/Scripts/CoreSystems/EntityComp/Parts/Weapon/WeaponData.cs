@@ -40,9 +40,6 @@ namespace CoreSystems.Platform
                 if (validData && load.Version == Session.VersionControl)
                 {
                     Repo = load;
-                    if (collection.Count > 25)
-                        collection = collection.GetRange(0, 25); // TODO do better with this, this is awful. Temporary patch.
-
                     if (Session.I.IsServer)
                         Repo.Values.Targets = new ProtoWeaponTransferTarget[collection.Count];
                     
@@ -80,9 +77,6 @@ namespace CoreSystems.Platform
                 }
                 else
                 {
-                    if (collection.Count > 25)
-                        collection = collection.GetRange(0, 25); // TODO this is a bad temporary patch.
-
                     Repo = new ProtoWeaponRepo
                     {
                         Values = new ProtoWeaponComp
