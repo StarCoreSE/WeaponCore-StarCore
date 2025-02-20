@@ -241,6 +241,22 @@ namespace CoreSystems.Api
             var pb = MyAPIGateway.TerminalControls.CreateProperty<IReadOnlyDictionary<string, Delegate>, Sandbox.ModAPI.IMyTerminalBlock>("WcPbAPI");
             pb.Getter = b => _safeDictionary;
             MyAPIGateway.TerminalControls.AddControl<Sandbox.ModAPI.Ingame.IMyProgrammableBlock>(pb);
+			
+			MyAPIGateway.Entities.GetEntities(null, ent =>
+			{
+				var grid = ent as IMyCubeGrid;
+				if (grid == null)
+					return false;
+				
+				// Workaround for scripts crashing when loading before the API is ready (i.e. on world load)
+				foreach (var pb in grid.GetFatBlocks<IMyProgrammableBlock>())
+				{
+					if (!pb.IsRunning && pb.ProgramData.Contains("WcPbAPI"))
+						pb.Recompile();
+				}
+				return false;
+			});
+			
             Session.I.PbApiInited = true;
         }
 
