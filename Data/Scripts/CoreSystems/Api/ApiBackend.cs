@@ -249,10 +249,10 @@ namespace CoreSystems.Api
 					return false;
 				
 				// Workaround for scripts crashing when loading before the API is ready (i.e. on world load)
-				foreach (var pb in grid.GetFatBlocks<IMyProgrammableBlock>())
+				foreach (var programmableBlock in grid.GetFatBlocks<Sandbox.ModAPI.IMyProgrammableBlock>())
 				{
-					if (!pb.IsRunning && pb.ProgramData.Contains("WcPbAPI"))
-						pb.Recompile();
+					if (!programmableBlock.IsRunning && programmableBlock.ProgramData.Contains("WcPbAPI"))
+						programmableBlock.Recompile();
 				}
 				return false;
 			});
