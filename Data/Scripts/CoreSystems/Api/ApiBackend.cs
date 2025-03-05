@@ -251,6 +251,8 @@ namespace CoreSystems.Api
 				// Workaround for scripts crashing when loading before the API is ready (i.e. on world load)
 				foreach (var programmableBlock in grid.GetFatBlocks<Sandbox.ModAPI.IMyProgrammableBlock>())
 				{
+					if (programmableBlock?.ProgramData == null)
+						continue;
 					if (!programmableBlock.IsRunning && programmableBlock.ProgramData.Contains("WcPbAPI"))
 						programmableBlock.Recompile();
 				}
