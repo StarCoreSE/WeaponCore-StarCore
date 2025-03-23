@@ -145,6 +145,7 @@
     <Compile Include="Data\Scripts\CoreSystems\AudioVisual\RunAv.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\CoreSystems\CombinerNetwork.cs" />
     <Compile Include="Data\Scripts\CoreSystems\Comms\SignalProcessing.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
@@ -322,6 +323,7 @@
     <Compile Include="Data\Scripts\CoreSystems\Definitions\SerializedConfigs\CoreSettings.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Data\Scripts\CoreSystems\Session\CombinerNetwork.cs" />
     <Compile Include="Data\Scripts\CoreSystems\Session\SessionCharging.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
