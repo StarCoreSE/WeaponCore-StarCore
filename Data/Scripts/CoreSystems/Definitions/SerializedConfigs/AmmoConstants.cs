@@ -296,6 +296,7 @@ namespace CoreSystems.Support
         public readonly float DetonationSoundDistSqr;
         public readonly float BackKickForce;
         public readonly float DragPerTick;
+        public readonly float DragMinSpeed;
         public readonly double MinTurnSpeedSqr;
         public readonly double Aggressiveness;
         public readonly double NavAcceleration;
@@ -453,6 +454,7 @@ namespace CoreSystems.Support
             AmmoSkipAccel = ammo.AmmoDef.Trajectory.AccelPerSec <= 0;
             AmmoUseDrag = ammo.AmmoDef.Trajectory.DragPerSecond > 0;
             DragPerTick = AmmoUseDrag ? ammo.AmmoDef.Trajectory.DragPerSecond / 60 : 0;
+            DragMinSpeed = AmmoUseDrag ? ammo.AmmoDef.Trajectory.DragMinSpeed : 0;
 
             FeelsGravity = GravityMultiplier > 0;
             StoreGravity = FeelsGravity || fragHasGravity;
@@ -494,6 +496,10 @@ namespace CoreSystems.Support
                 out ShotSoundDistSqr, out DetonationSoundDistSqr, out ShotSoundStr, out VoxelSound, out VoxelSoundPair, out FloatingSound, out FloatingSoundPair, out PlayerSound, out PlayerSoundPair, out ShieldSound, out ShieldSoundPair);
 
             MagazineSize = EnergyAmmo ? EnergyMagSize : MagazineDef.Capacity;
+
+            if (EnergyAmmo && MagazineSize == 0)
+                Log.Line($"{ammo.AmmoDef.AmmoRound} has a magazine capacity of zero, Girax error detected!  Check your magazine sbc entry for a <capacity> tag");
+
             MagsToLoad = wDef.HardPoint.Loading.MagsToLoad > 0 ? wDef.HardPoint.Loading.MagsToLoad : 1;
             MaxAmmo = MagsToLoad * MagazineSize;
 
@@ -505,7 +511,8 @@ namespace CoreSystems.Support
             var predictedShotLimit = system.PartType != HardwareDef.HardwareType.HandWeapon ? 120 : 450;
             var predictedReloadLimit = system.PartType != HardwareDef.HardwareType.HandWeapon ? 120 : 60;
 
-            ClientPredictedAmmo = predictionEligible && FixedFireAmmo && !fragHasAutonomy && !ammo.IsShrapnel && RealShotsPerMin <= predictedShotLimit && !clientPredictedAmmoDisabled;
+            //ClientPredictedAmmo = predictionEligible && FixedFireAmmo && !fragHasAutonomy && !ammo.IsShrapnel && RealShotsPerMin <= predictedShotLimit && !clientPredictedAmmoDisabled;
+            ClientPredictedAmmo = false;  //should check here in the future for CTC, customturret, rotorturret bullshit
 
             if (!ClientPredictedAmmo && predictionEligible)
                 Log.Line($"{ammo.AmmoDef.AmmoRound} is NOT enabled for client prediction");

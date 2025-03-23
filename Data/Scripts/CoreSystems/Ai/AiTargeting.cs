@@ -19,6 +19,7 @@ using static CoreSystems.Platform.Weapon.ApiShootRequest;
 using IMyWarhead = Sandbox.ModAPI.IMyWarhead;
 using CollisionLayers = Sandbox.Engine.Physics.MyPhysics.CollisionLayers;
 using Sandbox.ModAPI;
+using VRage.ModAPI;
 
 namespace CoreSystems.Support
 {
@@ -304,7 +305,7 @@ namespace CoreSystems.Support
                 if (meteor != null && (!s.TrackMeteors || !overRides.Meteors)) 
                     continue;
                 
-                if (character != null && (!overRides.Biologicals || character.IsDead || character.Integrity <= 0 || session.AdminMap.ContainsKey(character))) 
+                if (character != null && (!w.System.TrackCharacters || !overRides.Biologicals || character.IsDead || character.Integrity <= 0 || session.AdminMap.ContainsKey(character))) 
                     continue;
 
 
@@ -325,7 +326,7 @@ namespace CoreSystems.Support
                     TargetInfo hitInfo;
                     var targMatch = w.LastHitInfo.HitEntity == info.Target;
                     var targOther = !targMatch && ai.Targets.TryGetValue((MyEntity)w.LastHitInfo.HitEntity, out hitInfo) && (hitInfo.EntInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || hitInfo.EntInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral || hitInfo.EntInfo.Relationship == MyRelationsBetweenPlayerAndBlock.NoOwnership);
-                    var targChar = !targMatch && character != null && !ai.ObstructionLookup.ContainsKey((MyEntity)w.LastHitInfo.HitEntity);
+                    var targChar = !targMatch && character != null && !(w.LastHitInfo.HitEntity is IMyVoxelBase) && !ai.ObstructionLookup.ContainsKey((MyEntity)w.LastHitInfo.HitEntity);
 
                     if (targMatch || targOther || targChar)
                     {
@@ -481,7 +482,7 @@ namespace CoreSystems.Support
                 var meteor = info.Target as MyMeteor;
                 if (meteor != null && (!s.TrackMeteors || !overRides.Meteors)) continue;
 
-                if (character != null && (false && !overRides.Biologicals || character.IsDead || character.Integrity <= 0)) continue;
+                if (character != null && (!w.System.TrackCharacters || !overRides.Biologicals || character.IsDead || character.Integrity <= 0)) continue;
 
                 Vector3D predictedPos;
                 if (!Weapon.CanShootTarget(w, ref targetCenter, targetLinVel, targetAccel, out predictedPos, true, info.Target, MathFuncs.DebugCaller.CanShootTarget4)) continue;
@@ -739,7 +740,7 @@ namespace CoreSystems.Support
             TargetInfo alphaInfo = null;
             int offset = 0;
             MyEntity fTarget;
-            if (!aConst.OverrideTarget && ai.Construct.Data.Repo.FocusData.Target > 0 && MyEntities.TryGetEntityById(ai.Construct.Data.Repo.FocusData.Target, out fTarget) && ai.Targets.TryGetValue(fTarget, out alphaInfo))
+            if (!aConst.OverrideTarget && ai.Construct.Data.Repo.FocusData.Target != 0 && MyEntities.TryGetEntityById(ai.Construct.Data.Repo.FocusData.Target, out fTarget) && ai.Targets.TryGetValue(fTarget, out alphaInfo))
                 offset++;
 
             if (aConst.FocusOnly && offset <= 0)
@@ -1059,7 +1060,7 @@ namespace CoreSystems.Support
             {
                 TargetInfo priorityInfo;
                 MyEntity fTarget;
-                if (ai.Construct.Data.Repo.FocusData.Target > 0 && MyEntities.TryGetEntityById(ai.Construct.Data.Repo.FocusData.Target, out fTarget) && ai.Targets.TryGetValue(fTarget, out priorityInfo) && priorityInfo.Target?.GetTopMostParent() == topEnt)
+                if (ai.Construct.Data.Repo.FocusData.Target != 0 && MyEntities.TryGetEntityById(ai.Construct.Data.Repo.FocusData.Target, out fTarget) && ai.Targets.TryGetValue(fTarget, out priorityInfo) && priorityInfo.Target?.GetTopMostParent() == topEnt)
                 {
                     isPriroity = true;
                     lastBlocks = totalBlocks < 250 ? totalBlocks : 250;

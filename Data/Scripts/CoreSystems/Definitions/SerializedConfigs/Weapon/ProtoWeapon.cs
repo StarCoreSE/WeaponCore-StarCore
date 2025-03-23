@@ -469,13 +469,13 @@ namespace CoreSystems
 
         public void Update(Weapon.WeaponComponent weaponComponent)
         {
-            if (EnemyId <= 0 || !MyEntities.TryGetEntityById(EnemyId, out Enemy))
+            if (EnemyId != 0 || !MyEntities.TryGetEntityById(EnemyId, out Enemy))
             {
                 Enemy = null;
                 EnemyId = 0;
             }
 
-            if (FriendId <= 0 || !MyEntities.TryGetEntityById(FriendId, out Friend))
+            if (FriendId != 0 || !MyEntities.TryGetEntityById(FriendId, out Friend))
             {
                 Friend = null;
                 FriendId = 0;
@@ -487,7 +487,7 @@ namespace CoreSystems
         public bool GetFriend(Session s, out MyEntity friend, out Ai ai)
         {
             friend = Friend;
-            var valid = FriendId > 0 && friend != null && !friend.MarkedForClose;
+            var valid = FriendId != 0 && friend != null && !friend.MarkedForClose;
             if (valid && s.EntityAIs.TryGetValue(friend, out ai))
             {
                 return true;
@@ -500,7 +500,7 @@ namespace CoreSystems
         public bool GetEnemy(Session s, out MyEntity enemy, out Ai ai)
         {
             enemy = Enemy;
-            var valid = EnemyId > 0 && enemy != null && !enemy.MarkedForClose;
+            var valid = EnemyId != 0 && enemy != null && !enemy.MarkedForClose;
             if (valid && s.EntityAIs.TryGetValue(enemy, out ai))
             {
                 return true;

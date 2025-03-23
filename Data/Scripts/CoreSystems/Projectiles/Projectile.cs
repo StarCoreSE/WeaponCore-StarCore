@@ -490,7 +490,7 @@ namespace CoreSystems.Projectiles
                     validEntity = !targetEnt.MarkedForClose;
                     
                     var targetChange = validEntity && aConst.FocusOnly && Info.Target.TopEntityId != ai.Construct.Data.Repo.FocusData.Target;
-                    if (targetChange && (aConst.FocusEviction || ai.Construct.Data.Repo.FocusData.Target > 0))
+                    if (targetChange && (aConst.FocusEviction || ai.Construct.Data.Repo.FocusData.Target != 0))
                         validEntity = IsFocusTarget(targetEnt);
                 }
 
@@ -760,7 +760,9 @@ namespace CoreSystems.Projectiles
             if (aConst.AmmoUseDrag)
             {
                 speedCap -= Info.Age * aConst.DragPerTick;
-                if (speedCap < 0)
+                if (speedCap < aConst.DragMinSpeed)
+                    speedCap = aConst.DragMinSpeed;
+                else if (speedCap < 0)
                     speedCap = 0;
             }
             if (VelocityLengthSqr > speedCap * speedCap) {

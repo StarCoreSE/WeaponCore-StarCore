@@ -891,7 +891,7 @@ namespace CoreSystems.Platform
                     xn *= timeToIntercept;
                 }
 
-                if (Math.Abs(value) < tolerance)
+                if (Math.Abs(value) < tolerance || double.IsNaN(value)) 
                     return true;
 
                 // Derivative
@@ -903,7 +903,7 @@ namespace CoreSystems.Platform
                     xn1 *= timeToIntercept;
                 }
 
-                if (MyUtils.IsZero(deriv, 1e-10f)) 
+                if (MyUtils.IsZero(deriv, 1e-10f) || double.IsNaN(deriv)) 
                     break;
 
                 timeToIntercept -= value / deriv;
@@ -911,14 +911,14 @@ namespace CoreSystems.Platform
             return false;
         }
 
-        internal static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
+        public static Vector3D TrajectoryEstimation(Weapon weapon, Vector3D targetPos, Vector3D targetVel, Vector3D targetAcc, Vector3D shooterPos, out bool valid, bool basicPrediction = false, bool trackAngular = false)
         {
             valid = false;
             Vector3D aimPoint;
             var comp = weapon.Comp;
             var ai = comp.Ai;
             var session = Session.I;
-            #region Must Have Updates
+
             if (ai.VelocityUpdateTick != session.Tick)
             {
                 ai.TopEntityVolume.Center = comp.TopEntity.PositionComp.WorldVolume.Center;
@@ -926,11 +926,13 @@ namespace CoreSystems.Platform
                 ai.IsStatic = comp.TopEntity.Physics?.IsStatic ?? false;
                 ai.VelocityUpdateTick = session.Tick;
             }
+
             var shooterVel = (Vector3D)weapon.Comp.Ai.TopEntityVel;
             var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
             var projectileMaxSpeed = ammoDef.Const.DesiredProjectileSpeed;
+
             var updateGravity = ammoDef.Const.FeelsGravity && ai.InPlanetGravity;
-            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5; //equal to approx 1.58 m/s
+            var useSimple = basicPrediction || ammoDef.Const.AmmoSkipAccel || targetAcc.LengthSquared() < 2.5;
 
             if (updateGravity && session.Tick - weapon.GravityTick > 119)
             {
@@ -941,25 +943,29 @@ namespace CoreSystems.Platform
                 weapon.GravityLength = weapon.GravityUnitDir.Normalize();
             }
             else if (!updateGravity)
+            {
                 weapon.GravityPoint = Vector3D.Zero;
-
-            #endregion
+            }
 
             Vector3D deltaVel = targetVel - shooterVel;
-
             double deltaLength;
             double initialTti;
+
             Vector3D deltaPos = targetPos - shooterPos;
             if (Vector3D.IsZero(deltaPos))
+            {
                 return targetPos;
-            
-            Vector3D deltaPosNorm;
+            }
 
+            Vector3D deltaPosNorm;
+            double closingSpeed;
             var targCube = weapon.Target?.TargetObject as MyCubeBlock;
             if (!basicPrediction && trackAngular && targCube != null && targCube.CubeGrid.Physics != null && targCube.CubeGrid.Physics.AngularVelocity.LengthSquared() > 0.0014)
             {
                 if (!ComputeAngular(targCube.CubeGrid, ai, ammoDef, ref targetPos, ref shooterPos, ref targetAcc, ref deltaVel, projectileMaxSpeed, out deltaLength, out initialTti, out deltaPos, out deltaPosNorm))
+                {
                     return targetPos;
+                }
             }
             else
             {
@@ -974,22 +980,26 @@ namespace CoreSystems.Platform
                     deltaLength = deltaPosNorm.Normalize();
                 }
 
-                double closingSpeed;
                 Vector3D.Dot(ref deltaVel, ref deltaPosNorm, out closingSpeed);
                 initialTti = (projectileMaxSpeed * projectileMaxSpeed) - (deltaVel - (closingSpeed * deltaPosNorm)).LengthSquared();
-
                 if (initialTti <= 0)
+                {
                     return targetPos;
+                }
 
                 double closingDistance;
                 Vector3D.Dot(ref deltaPos, ref deltaPosNorm, out closingDistance);
                 initialTti = closingDistance / (Math.Sqrt(initialTti) - closingSpeed);
-
                 if (initialTti <= 0)
+                {
                     return targetPos;
+                }
             }
 
             valid = true;
+
+            double usedTti = initialTti;
+
             if (useSimple)
             {
                 aimPoint = targetPos + (initialTti) * (targetVel - shooterVel);
@@ -998,52 +1008,82 @@ namespace CoreSystems.Platform
             {
                 var advTti = initialTti;
                 var projAccelTime = ammoDef.Const.DesiredProjectileSpeed / ammoDef.Const.AccelInMetersPerSec;
-                var usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
+                usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage, 1e-6) ? advTti : initialTti;
                 aimPoint = targetPos + (usedTti + (ammoDef.Const.AmmoSkipAccel ? 0 : (projAccelTime / usedTti))) * (targetVel - shooterVel);
             }
+
+            Vector3D bestAimPoint = aimPoint;
+            double bestHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, aimPoint);
+
+
+            int numIterations = 12; //TODO: do NOT 
+            double angleRange = weapon.AimingTolerance * 2;
+            double angleStep = angleRange / (numIterations - 1);
+
+            Vector3D aimDirection = Vector3D.Normalize(aimPoint - shooterPos);
+            Vector3D rotationAxis = Vector3D.Cross(aimDirection, weapon.MyPivotUp);
+
+            for (int i = 0; i < numIterations; i++)
+            {
+                double angle = (i - numIterations / 2) * angleStep;
+                Vector3D testAimDirection = Vector3D.Transform(aimDirection, MatrixD.CreateFromAxisAngle(rotationAxis, MathHelper.ToRadians(angle)));
+                Vector3D testAimPoint = shooterPos + testAimDirection * deltaLength;
+                double testHitProbability = CalculateHitProbability(weapon, targetPos, deltaPosNorm, targetVel, targetAcc, deltaLength, usedTti, valid, testAimPoint);
+
+                if (testHitProbability > bestHitProbability)
+                {
+                    bestAimPoint = testAimPoint;
+                    bestHitProbability = testHitProbability;
+                }
+            }
+
+            aimPoint = bestAimPoint;
+
+            // Store the best hit probability in the weapon object
+            weapon.CurrentHitChance = bestHitProbability;
+
             Vector3D gravityOffset = Vector3D.Zero;
             if (updateGravity && !MyUtils.IsZero(weapon.GravityPoint))
             {
                 var gravPointDot = Vector3D.Dot(weapon.GravityUnitDir, deltaPosNorm);
                 var targetAngle = Math.Acos(gravPointDot);
                 double elevationDifference;
-                if (targetAngle >= 1.5708) //Target is above weapon
+                if (targetAngle >= 1.5708)
                 {
-                    targetAngle -= 1.5708; //angle-90
+                    targetAngle -= 1.5708;
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
-                else //Target is below weapon
+                else
                 {
-                    targetAngle = 1.5708 - targetAngle; //90-angle
+                    targetAngle = 1.5708 - targetAngle;
                     elevationDifference = -Math.Sin(targetAngle) * deltaLength;
                 }
-                var horizontalDistance = Math.Sqrt(deltaLength * deltaLength - elevationDifference * elevationDifference);
 
+                var horizontalDistance = Math.Sqrt(deltaLength * deltaLength - elevationDifference * elevationDifference);
                 var g = -(weapon.GravityLength * ammoDef.Const.GravityMultiplier);
                 var v = projectileMaxSpeed;
                 var h = elevationDifference;
                 var d = horizontalDistance;
 
                 var angleCheck = (v * v * v * v) - 2 * (v * v) * -h * g - (g * g) * (d * d);
-
                 if (angleCheck <= 0)
+                {
                     valid = false;
+                }
                 else
                 {
                     var angleSqrt = Math.Sqrt(angleCheck);
-                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d));//Higher angle
-                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d));//Lower angle                //Try angle 2 first (the lower one)
-
-                    var verticalDistance = Math.Tan(angle2) * horizontalDistance; //without below-the-horizon modifier
+                    var angle1 = -Math.Atan((v * v + angleSqrt) / (g * d));
+                    var angle2 = -Math.Atan((v * v - angleSqrt) / (g * d));
+                    var verticalDistance = Math.Tan(angle2) * horizontalDistance;
                     gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
 
                     if (angle1 < 1.57)
                     {
                         var targetAimPoint = aimPoint + gravityOffset;
                         var targetDirection = targetAimPoint - shooterPos;
-
                         bool isTracking;
-                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking)) //Angle 2 obscured, switch to angle 1
+                        if (!weapon.RotorTurretTracking && weapon.TurretController && !WeaponLookAt(weapon, ref targetDirection, deltaLength * deltaLength, false, true, DebugCaller.TrajectoryEstimation, out isTracking))
                         {
                             verticalDistance = Math.Tan(angle1) * horizontalDistance;
                             gravityOffset = new Vector3D((verticalDistance + Math.Abs(elevationDifference)) * -weapon.GravityUnitDir);
@@ -1057,68 +1097,152 @@ namespace CoreSystems.Platform
                 }
             }
 
-            //DsDebugDraw.DrawLine(new LineD(targetPos, aimPoint + gravityOffset), Color.Red, 1);
-            //MyAPIGateway.Utilities.ShowNotification($"New Mode: {(useSimple ? "Simple" : "Advanced")} {(updateGravity ? " w/ grav" : " no grav")} {(ammoDef.Const.AmmoSkipAccel ? " no proj accel" : "w/ proj accel")}",16);
-
             return aimPoint + gravityOffset;
         }
 
+        private static double CalculateHitProbability(Weapon weapon, Vector3D targetPos, Vector3D deltaPosNorm, Vector3D targetVel, Vector3D targetAcc, double deltaLength, double timeToIntercept, bool validEstimate, Vector3D aimPoint)
+        {
+            var ammoDef = weapon.ActiveAmmoDef.AmmoDef;
+            var projectileSpeed = ammoDef.Const.DesiredProjectileSpeed;
+            var weaponAccuracy = weapon.System.Values.HardPoint.DeviateShotAngle;
+            var maxRange = ammoDef.Const.MaxTrajectory;
+
+            // If the estimate isn't valid or target is out of range, return 0
+            if (!validEstimate || deltaLength > maxRange)
+            {
+                return 0;
+            }
+
+            //don't think if you're smart
+            if (ammoDef.Const.IsSmart)
+            {
+                return 0;
+            }
+
+            //don't do any math if we're a fixed weapon
+            if (!weapon.TurretController)
+            {
+                return 0;
+            }
+
+            // Check for beam weapons first
+            if (ammoDef.Beams.Enable)
+            {
+                return 100; // Beam weapons always have 100% hit chance
+            }
+
+            // Base accuracy (inverse of deviation angle)
+            double baseAccuracy = 1 - (weaponAccuracy / Math.PI);
+
+            // Distance factor (1 at close range, decreasing with distance)
+            double distanceFactor = 1 - (deltaLength / maxRange);
+
+            // Velocity factor (1 for stationary targets, decreasing with velocity)
+            double relativeVelocity = targetVel.Length() / projectileSpeed;
+            double velocityFactor = 1 / (1 + relativeVelocity);
+
+            // Acceleration factor (1 for constant velocity, decreasing with acceleration)
+            double relativeAcceleration = targetAcc.Length() * timeToIntercept / projectileSpeed;
+            double accelerationFactor = 1 / (1 + relativeAcceleration);
+
+            // Calculate hit probability
+            double hitProbability = baseAccuracy * distanceFactor * velocityFactor * accelerationFactor;
+
+            // Convert to percentage and round to nearest integer
+            hitProbability = Math.Round(hitProbability * 100);
+
+            // Clamp the result between 0 and 100
+            return MathHelper.Clamp(hitProbability, 0, 100);
+        }
 
         private static bool ComputeAngular(MyCubeGrid grid, Ai ai, WeaponDefinition.AmmoDef ammoDef, ref Vector3D targetPos, ref Vector3D shooterPos, ref Vector3D targetAcc, ref Vector3D deltaVel, double projectileMaxSpeed, out double deltaLength, out double initialTti, out Vector3D deltaPos, out Vector3D deltaPosNorm)
         {
-            // deltaPos computed twice, once before and once after Angular estimation.  We just return usedTti as initialTti since it should always be superior.
+            // Calculate the initial delta position (vector from shooter to target)
             deltaPos = targetPos - shooterPos;
 
-            if (Vector3D.IsUnit(ref deltaPos))
+            // Normalize deltaPos to obtain deltaPosNorm and calculate deltaLength
+            deltaLength = deltaPos.Length(); // Calculate the length (magnitude) of the deltaPos vector
+            if (deltaLength > 1e-6) // Avoid division by zero or very small values
             {
-                deltaPosNorm = deltaPos;
-                deltaLength = 1;
+                deltaPosNorm = deltaPos / deltaLength; // Normalize the vector
             }
             else
             {
-                deltaPosNorm = deltaPos;
-                deltaLength = deltaPosNorm.Normalize();
+                deltaPosNorm = Vector3D.Zero; // Handle the degenerate case
+                deltaLength = 0;
             }
 
-            double closingSpeed;
-            Vector3D.Dot(ref deltaVel, ref deltaPosNorm, out closingSpeed);
-            initialTti = (projectileMaxSpeed * projectileMaxSpeed) - (deltaVel - (closingSpeed * deltaPosNorm)).LengthSquared();
+            // Calculate the closing speed (projection of deltaVel onto deltaPosNorm)
+            double closingSpeed = Vector3D.Dot(deltaVel, deltaPosNorm);
 
+            // Initial time-to-intercept (Tti) calculation using projectile speed and delta velocity
+            double speedSquared = projectileMaxSpeed * projectileMaxSpeed;
+            double velocityDiffLengthSquared = (deltaVel - closingSpeed * deltaPosNorm).LengthSquared();
+            initialTti = speedSquared - velocityDiffLengthSquared;
+
+            // If the calculated Tti is non-physical, return false
             if (initialTti <= 0)
                 return false;
 
-            double closingDistance;
-            Vector3D.Dot(ref deltaPos, ref deltaPosNorm, out closingDistance);
+            // Calculate closing distance (projection of deltaPos onto deltaPosNorm)
+            double closingDistance = Vector3D.Dot(deltaPos, deltaPosNorm);
+
+            // Refine initial Tti based on calculated values
             initialTti = closingDistance / (Math.Sqrt(initialTti) - closingSpeed);
 
+            // If refined Tti is non-physical, return false
             if (initialTti <= 0)
                 return false;
 
-            var advTti = initialTti;
-            var usedTti = QuarticSolver(ref advTti, deltaPos, deltaVel, targetAcc, ammoDef.Const.DesiredProjectileSpeed, ai.QuadraticCoefficientsStorage) ? advTti : initialTti;
-            var targCom = grid.Physics.CenterOfMassWorld;
-            var targAngVel = grid.Physics.AngularVelocity; //Radians per second
-            var targAngVelLen = targAngVel.Normalize();
-            var angleTravelled = targAngVelLen * usedTti;
-            var dirFromCom = targetPos - targCom;
-            var distFromCom = dirFromCom.Normalize();
-            var matrix = MatrixD.CreateFromAxisAngle(targAngVel, angleTravelled);
-            var matrixRot = Vector3D.Rotate(dirFromCom, matrix);
-            initialTti = usedTti;
+            // Further refine Tti using a Quartic Solver
+            double advancedTti = initialTti;
+            double desiredSpeed = ammoDef.Const.DesiredProjectileSpeed;
+            bool solved = QuarticSolver(ref advancedTti, deltaPos, deltaVel, targetAcc, desiredSpeed, ai.QuadraticCoefficientsStorage);
+            double usedTti = solved ? advancedTti : initialTti;
 
-            if (initialTti <= 0)
-                return false;
+            // Calculate target's angular velocity and the angle traveled during Tti
+            Vector3D targCom = grid.Physics.CenterOfMassWorld;
+            Vector3D targAngVel = grid.Physics.AngularVelocity;
+            double targAngVelLen = targAngVel.Length(); // Get angular velocity vector length
+            if (targAngVelLen > 1e-6) // Avoid issues with very small angular velocities
+            {
+                targAngVel /= targAngVelLen; // Normalize angular velocity vector
+            }
 
-            // re-run since we changed the targetPos
-            targetPos = targCom + matrixRot * distFromCom;
+            double angleTravelled = targAngVelLen * usedTti;
 
-            deltaPos = targetPos - shooterPos;
-            if (Vector3D.IsZero(deltaPos))
-                deltaLength = 0;
-            else if (Vector3D.IsUnit(ref deltaPos))
-                deltaLength = 1;
+            // Calculate the direction from the center of mass to the target
+            Vector3D dirFromCom = targetPos - targCom;
+            double distFromCom = dirFromCom.Length(); // Calculate the distance from the COM
+            if (distFromCom > 1e-6) // Avoid division by zero or very small values
+            {
+                dirFromCom /= distFromCom; // Normalize the direction vector
+            }
             else
-                deltaLength = deltaPosNorm.Normalize();
+            {
+                dirFromCom = Vector3D.Zero; // Handle the degenerate case
+                distFromCom = 0;
+            }
+
+            // Create a rotation matrix based on angular velocity and angle travelled
+            MatrixD rotationMatrix = MatrixD.CreateFromAxisAngle(targAngVel, angleTravelled);
+            Vector3D rotatedDirection = Vector3D.Rotate(dirFromCom, rotationMatrix);
+
+            // Update target position after applying the rotation
+            targetPos = targCom + rotatedDirection * distFromCom;
+
+            // Recalculate delta position and normalize it to obtain the final deltaLength
+            deltaPos = targetPos - shooterPos;
+            deltaLength = deltaPos.Length(); // Recalculate the length (magnitude)
+            if (deltaLength > 1e-6) // Avoid division by zero or very small values
+            {
+                deltaPosNorm = deltaPos / deltaLength; // Normalize the vector
+            }
+            else
+            {
+                deltaPosNorm = Vector3D.Zero; // Handle the degenerate case
+                deltaLength = 0;
+            }
 
             return true;
         }
@@ -1373,10 +1497,10 @@ namespace CoreSystems.Platform
             }
 
             if (MinElToleranceRadians > MaxElToleranceRadians)
-                MinElToleranceRadians -= 6.283185f;
+                MinElToleranceRadians -= 6.283185; //changed to double for precision vibecheck
 
             if (MinAzToleranceRadians > MaxAzToleranceRadians)
-                MinAzToleranceRadians -= 6.283185f;
+                MinAzToleranceRadians -= 6.283185; //changed to double for precision vibecheck
 
             var dummyInfo = Dummies[MiddleMuzzleIndex].Info;
 

@@ -18,6 +18,7 @@ namespace CoreSystems.Support
         internal TargetStates TargetState;
         internal bool HasTarget;
         internal bool IsAligned;
+        public bool ImpossibleToHit;
         internal bool SoftProjetileReset;
         internal bool TargetChanged;
         internal bool ClientDirty;
@@ -130,7 +131,7 @@ namespace CoreSystems.Support
             }
 
             MyEntity targetEntity = null;
-            if (tData.EntityId <= 0 || MyEntities.TryGetEntityById(tData.EntityId, out targetEntity, true))
+            if ((tData.EntityId <= 0 && tData.EntityId >= -2) || MyEntities.TryGetEntityById(tData.EntityId, out targetEntity, true))
             {
                 TargetObject = targetEntity;
 

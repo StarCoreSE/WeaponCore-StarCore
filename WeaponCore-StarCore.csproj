@@ -1,0 +1,96 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>YourName.ModName</RootNamespace>
+    <TargetFramework>net48</TargetFramework>
+    <Platforms>x64</Platforms>
+    <LangVersion>6</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateNeutralResourcesLanguageAttribute>false</GenerateNeutralResourcesLanguageAttribute>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mal.Mdk2.ModAnalyzers" Version="2.1.9">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Mal.Mdk2.References" Version="2.2.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.Build.Conversion.v4.0" />
+    <Reference Include="System.Threading.Tasks.Extensions">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\System.Threading.Tasks.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Ansel">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Ansel.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Audio">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Audio.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.EOS">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.EOS.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.EOS.XmlSerializers">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.EOS.XmlSerializers.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Game">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Game.XmlSerializers">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Game.XmlSerializers.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Input">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Input.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Library">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Library.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Math">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Math.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Math.XmlSerializers">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Math.XmlSerializers.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Mod.Io">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Mod.Io.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.NativeAftermath">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.NativeAftermath.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.NativeWrapper">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.NativeWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Network">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Network.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Platform.Windows">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Platform.Windows.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Render">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Render.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Render11">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Render11.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Scripting">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Scripting.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.Steam">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.Steam.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.UserInterface">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.UserInterface.dll</HintPath>
+    </Reference>
+    <Reference Include="VRage.XmlSerializers">
+      <HintPath>O:\SteamLibrary\steamapps\common\SpaceEngineersModSDK\Bin64_Profile\VRage.XmlSerializers.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
