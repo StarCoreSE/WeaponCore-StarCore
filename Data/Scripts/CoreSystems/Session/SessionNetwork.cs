@@ -55,11 +55,11 @@ namespace CoreSystems
 
         #region NewClientSwitch
 
-        internal void ClientReceivedPacket(Packet packet)
+        private void ClientReceivedPacket(byte[] rawData)
         {
             try
             {
-                //var packet = MyAPIGateway.Utilities.SerializeFromBinary<Packet>(rawData);
+                var packet = MyAPIGateway.Utilities.SerializeFromBinary<Packet>(rawData);
                 if (packet == null)
                 {
                     Log.Line("ClientReceivedPacket null packet");
@@ -71,8 +71,7 @@ namespace CoreSystems
                     PingPong(((PingPacket)packet).RelativeTime);
                     return;
                 }
-                //var packetSize = rawData.Length;
-                var packetSize = 0; // sorry
+                var packetSize = rawData.Length;
                 var report = Reporter.ReportPool.Get();
                 report.Receiver = NetworkReporter.Report.Received.Client;
                 report.PacketSize = packetSize;
@@ -269,16 +268,14 @@ namespace CoreSystems
             }
 
             for (int i = 0; i < PacketsToServer.Count; i++)
-                CombinerNetwork.SendMessageToServer(PacketsToServer[i]);
-                
-            CombinerNetwork.SendServerQueue();
+                MyModAPIHelper.MyMultiplayer.Static.SendMessageToServer(ServerPacketId, MyAPIGateway.Utilities.SerializeToBinary(PacketsToServer[i]), true);
 
             PacketsToServer.Clear();
         }
 
-        internal void ProccessServerPacket(Packet packet)
+        private void ProccessServerPacket(byte[] rawData)
         {
-            //var packet = MyAPIGateway.Utilities.SerializeFromBinary<Packet>(rawData);
+            var packet = MyAPIGateway.Utilities.SerializeFromBinary<Packet>(rawData);
             if (packet == null) return;
 
             if (packet.PType == PacketType.PingPong)
@@ -287,8 +284,7 @@ namespace CoreSystems
                 return;
             }
 
-            //var packetSize = rawData.Length;
-            var packetSize = 0; // sorry
+            var packetSize = rawData.Length;
 
             var report = Reporter.ReportPool.Get();
             report.Receiver = NetworkReporter.Report.Received.Server;
@@ -501,8 +497,9 @@ namespace CoreSystems
                 var hasSkipPlayer = !hasRewritePlayer && sPlayerId > 0;
                 var packet = packetInfo.Packet;
                 var reliable = !packetInfo.Unreliable;
+                var bytes = MyAPIGateway.Utilities.SerializeToBinary(packet);
                 if (packetInfo.SingleClient)
-                    CombinerNetwork.SendMessageTo(packet, packet.SenderId);
+                    MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, bytes, packet.SenderId, reliable);
                 else
                 {
                     long entityId = packetInfo.Entity?.GetTopMostParent().EntityId ?? -1;
@@ -514,10 +511,10 @@ namespace CoreSystems
                         var specialPlayer = sPlayerId == p.PlayerId;
                         var skipPlayer = hasSkipPlayer && specialPlayer;
 
-                        Packet packetRewrite = null;
+                        byte[] bytesRewrite = null;
                         var rewrite = specialPlayer && hasRewritePlayer || addOwl;
                         if (rewrite)
-                            packetRewrite = (Packet)packetInfo.Function(packet, steamId);
+                            bytesRewrite = MyAPIGateway.Utilities.SerializeToBinary((Packet)packetInfo.Function(packet, steamId));
 
 
                         var sendPacket = notSender && packetInfo.Entity == null;
@@ -541,12 +538,11 @@ namespace CoreSystems
                         }
 
                         if (sendPacket)
-                            CombinerNetwork.SendMessageTo(!rewrite ? packet : packetRewrite, p.Player.SteamUserId);
+                            MyModAPIHelper.MyMultiplayer.Static.SendMessageTo(ClientPacketId, !rewrite ? bytes : bytesRewrite, p.Player.SteamUserId, reliable);
                     }
                 }
             }
 
-            CombinerNetwork.SendClientQueue();
             ServerPacketsForClientsClean();
         }
 

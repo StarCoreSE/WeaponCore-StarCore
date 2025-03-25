@@ -28,14 +28,14 @@ namespace CoreSystems
             MpServer = IsHost || DedicatedServer;
             PlayerId = DedicatedServer ? 0 : Session.Player?.IdentityId ?? -1;
 
-            if (!IsServer && !DedicatedServer)
+            if (IsServer || DedicatedServer)
+                MyAPIGateway.Multiplayer.RegisterMessageHandler(ServerPacketId, ProccessServerPacket);
+            else
             {
                 MyAPIGateway.Multiplayer.RegisterMessageHandler(ClientPdPacketId, ClientReceivedDeathPacket);
-                //MyAPIGateway.Multiplayer.RegisterMessageHandler(ClientPacketId, ClientReceivedPacket);
+                MyAPIGateway.Multiplayer.RegisterMessageHandler(ClientPacketId, ClientReceivedPacket);
                 MyAPIGateway.Multiplayer.RegisterMessageHandler(StringPacketId, StringReceived);
             }
-            //else
-            //    MyAPIGateway.Multiplayer.RegisterMessageHandler(ServerPacketId, ProccessServerPacket);
 
             if (IsServer)
             {
