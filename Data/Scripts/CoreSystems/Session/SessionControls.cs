@@ -215,9 +215,9 @@ namespace CoreSystems
         {
             CreateCustomActions<T>.CreateArmReaction(session);
             CreateCustomActions<T>.CreateTriggerNow(session);
-            //CreateCustomActions<T>.CreateShootToggle(session);
-            //CreateCustomActions<T>.CreateShootOn(session);
-            //CreateCustomActions<T>.CreateShootOff(session);
+            CreateCustomActions<T>.CreateShootToggle(session);
+            CreateCustomActions<T>.CreateShootOn(session);
+            CreateCustomActions<T>.CreateShootOff(session);
             CreateCustomActions<T>.CreateShootMode(session);
             CreateCustomActions<T>.CreateKeyShoot(session);
             CreateCustomActions<T>.CreateMouseToggle(session);

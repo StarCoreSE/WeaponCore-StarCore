@@ -207,7 +207,7 @@ namespace CoreSystems.Control
             Separator<T>(session, "WC_sep4", IsTrue);
             AddOnOffSwitchNoAction<T>(session, "ShareFireControlEnabled", Localization.GetText("TerminalShareFireControlTitle"), Localization.GetText("TerminalShareFireControlTooltip"), BlockUi.GetShareFireControl, BlockUi.RequestShareFireControl, true, HasTracking);
 
-            //AddOnOffSwitchNoAction<T>(session,  "Shoot", Localization.GetText("TerminalShootTitle"), Localization.GetText("TerminalShootTooltip"), BlockUi.GetShoot, BlockUi.RequestSetShoot, true, IsNotBomb);
+            AddOnOffSwitchNoAction<T>(session,  "Shoot", Localization.GetText("TerminalShootTitle"), Localization.GetText("TerminalShootTooltip"), BlockUi.GetShoot, BlockUi.RequestSetShoot, true, IsNotBomb);
             AddOnOffSwitchNoAction<T>(session, "Override", Localization.GetText("TerminalOverrideTitle"), Localization.GetText("TerminalOverrideTooltip"), BlockUi.GetOverride, BlockUi.RequestOverride, true, OverrideTarget);
             AddOnOffSwitchNoAction<T>(session, "AngularTracking", Localization.GetText("TerminalAngularTitle"), Localization.GetText("TerminalAngularTooltip"), BlockUi.GetAngularTracking, BlockUi.RequestAngularTracking, true, IsNotBomb);
         }
