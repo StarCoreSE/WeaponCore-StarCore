@@ -375,14 +375,14 @@ namespace CoreSystems
             if (!ITask.IsComplete)
                 ITask.Wait();
 
-            if (!IsServer && !DedicatedServer)
+            if (IsServer || DedicatedServer)
+                MyAPIGateway.Multiplayer.UnregisterMessageHandler(ServerPacketId, ProccessServerPacket);
+            else
             {
-                //MyAPIGateway.Multiplayer.UnregisterMessageHandler(ClientPacketId, ClientReceivedPacket);
+                MyAPIGateway.Multiplayer.UnregisterMessageHandler(ClientPacketId, ClientReceivedPacket);
                 MyAPIGateway.Multiplayer.UnregisterMessageHandler(StringPacketId, StringReceived);
                 MyAPIGateway.Multiplayer.UnregisterMessageHandler(ClientPdPacketId, ClientReceivedDeathPacket);
             }
-            //else
-            //    MyAPIGateway.Multiplayer.UnregisterMessageHandler(ServerPacketId, ProccessServerPacket);
 
             if (HandlesInput)
                 MyAPIGateway.Utilities.MessageEntered -= ChatMessageSet;
