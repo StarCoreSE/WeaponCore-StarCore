@@ -59,7 +59,7 @@ namespace CoreSystems
 
                 ai.CheckProjectiles = Tick - ai.NewProjectileTick <= 1;
 
-                if (ai.AiType == Ai.AiTypes.Grid && (ai.UpdatePowerSources || !ai.HadPower && ai.GridEntity.IsPowered || ai.HasPower && !ai.GridEntity.IsPowered || Tick10))
+                if (ai.AiType == Ai.AiTypes.Grid && (ai.UpdatePowerSources || !ai.HadPower && ai.GridEntity.IsPowerSwitchOn || ai.HasPower && !ai.GridEntity.IsPowerSwitchOn || Tick10))
                     ai.UpdateGridPower();
 
                 var enforcement = Settings.Enforcement;
